@@ -235,7 +235,9 @@ STDMETHODIMP TextService::OnPreservedKey(ITfContext*, REFGUID, BOOL* eaten) {
 bool TextService::ShouldHandle(WPARAM key) const {
   return (key >= 'A' && key <= 'Z') ||
          (!input_.empty() && (key == VK_BACK || key == VK_ESCAPE ||
-                             key == VK_SPACE || (key >= '1' && key <= '9')));
+                             key == VK_SPACE || key == VK_LEFT ||
+                             key == VK_RIGHT || key == VK_PRIOR ||
+                             key == VK_NEXT || (key >= '1' && key <= '5')));
 }
 
 bool TextService::HandleKey(ITfContext* context, WPARAM key) {
@@ -255,10 +257,19 @@ bool TextService::HandleKey(ITfContext* context, WPARAM key) {
     Reset();
     return true;
   }
+  if (key == VK_LEFT || key == VK_PRIOR) {
+    ChangePage(-1);
+    return true;
+  }
+  if (key == VK_RIGHT || key == VK_NEXT) {
+    ChangePage(1);
+    return true;
+  }
   std::size_t index = 0;
-  if (key >= '1' && key <= '9')
+  if (key >= '1' && key <= '5')
     index = static_cast<std::size_t>(key - '1');
-  if ((key == VK_SPACE || (key >= '1' && key <= '9')) &&
+  index += page_ * kPageSize;
+  if ((key == VK_SPACE || (key >= '1' && key <= '5')) &&
       index < candidates_.size()) {
     const std::string selected = candidates_[index].text;
     if (SUCCEEDED(Commit(context, selected))) {
@@ -283,13 +294,29 @@ bool TextService::HandleKey(ITfContext* context, WPARAM key) {
 void TextService::RefreshCandidates() {
   if (input_.empty()) {
     candidates_.clear();
+    page_ = 0;
+    candidate_window_.Hide();
     return;
   }
   LearningEvent request;
   request.input = input_;
   request.context = committed_context_;
   request.timestamp = static_cast<std::int64_t>(time(nullptr));
-  candidates_ = engine_.Query(request, 9);
+  candidates_ = engine_.Query(request, 50);
+  page_ = 0;
+  candidate_window_.Show(candidates_, page_, kPageSize);
+}
+
+void TextService::ChangePage(int delta) {
+  if (candidates_.empty())
+    return;
+  const std::size_t page_count =
+      (candidates_.size() + kPageSize - 1) / kPageSize;
+  if (delta < 0 && page_ > 0)
+    --page_;
+  else if (delta > 0 && page_ + 1 < page_count)
+    ++page_;
+  candidate_window_.Show(candidates_, page_, kPageSize);
 }
 
 HRESULT TextService::Commit(ITfContext* context,
@@ -310,6 +337,8 @@ HRESULT TextService::Commit(ITfContext* context,
 void TextService::Reset() {
   input_.clear();
   candidates_.clear();
+  page_ = 0;
+  candidate_window_.Hide();
 }
 
 }  // namespace zrinput::windows

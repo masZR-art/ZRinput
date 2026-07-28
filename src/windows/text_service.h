@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/pinyin_engine.h"
+#include "windows/candidate_window.h"
 
 #include <msctf.h>
 #include <atomic>
@@ -53,6 +54,7 @@ class TextService final : public ITfTextInputProcessor,
   bool ShouldHandle(WPARAM key) const;
   bool HandleKey(ITfContext* context, WPARAM key);
   void RefreshCandidates();
+  void ChangePage(int delta);
   HRESULT Commit(ITfContext* context, const std::string& utf8_text);
   void Reset();
 
@@ -63,6 +65,9 @@ class TextService final : public ITfTextInputProcessor,
   std::filesystem::path memory_path_;
   std::string input_;
   std::vector<Candidate> candidates_;
+  CandidateWindow candidate_window_;
+  std::size_t page_ = 0;
+  static constexpr std::size_t kPageSize = 5;
   std::vector<std::string> committed_context_;
 };
 
