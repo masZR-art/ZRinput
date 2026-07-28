@@ -126,11 +126,16 @@ TextService::TextService() {
   if (!module_directory.empty())
     engine_.LoadDictionary(module_directory / L"data" /
                            L"default_lexicon.tsv", false);
+  Theme theme;
+  if (!module_directory.empty())
+    theme.Load(module_directory / L"themes" / L"microsoft-dark.ini");
   const auto data_path = UserDataPath();
   if (!data_path.empty()) {
+    theme.Load(data_path / L"themes" / L"active.ini");
     memory_path_ = data_path / L"personal-model.zrim";
     engine_.memory().Load(memory_path_);
   }
+  candidate_window_.SetTheme(theme);
 }
 
 TextService::~TextService() {

@@ -8,7 +8,6 @@ extern HMODULE g_module;
 namespace {
 
 constexpr wchar_t kWindowClass[] = L"ZRinput.CandidateWindow";
-constexpr int kWindowHeight = 44;
 constexpr int kWindowWidth = 620;
 
 std::wstring Utf8ToWide(const std::string& text) {
@@ -49,12 +48,12 @@ bool CandidateWindow::EnsureWindow() {
   window_ = CreateWindowExW(
       extended_style,
       kWindowClass, L"ZRinput Candidate", WS_POPUP, 0, 0,
-      kWindowWidth, kWindowHeight,
+      kWindowWidth, theme_.window_height,
       nullptr, nullptr, g_module, this);
   if (!window_)
     return false;
   SetWindowRgn(window_, CreateRoundRectRgn(0, 0, kWindowWidth + 1,
-                                           kWindowHeight + 1, 8, 8), TRUE);
+                                           theme_.window_height + 1, 8, 8), TRUE);
   return true;
 }
 
@@ -78,6 +77,16 @@ void CandidateWindow::Hide() {
     ShowWindow(window_, SW_HIDE);
 }
 
+void CandidateWindow::SetTheme(const Theme& theme) {
+  theme_ = theme;
+  if (window_) {
+    SetWindowRgn(window_, CreateRoundRectRgn(0, 0, kWindowWidth + 1,
+                                             theme_.window_height + 1, 8, 8),
+                 TRUE);
+    InvalidateRect(window_, nullptr, FALSE);
+  }
+}
+
 void CandidateWindow::Position() {
   POINT point{};
   GUITHREADINFO info{sizeof(info)};
@@ -92,10 +101,10 @@ void CandidateWindow::Position() {
   GetMonitorInfoW(monitor, &monitor_info);
   point.x = std::clamp(point.x, monitor_info.rcWork.left,
                        monitor_info.rcWork.right - kWindowWidth);
-  if (point.y + kWindowHeight > monitor_info.rcWork.bottom)
-    point.y -= kWindowHeight + 24;
+  if (point.y + theme_.window_height > monitor_info.rcWork.bottom)
+    point.y -= theme_.window_height + 24;
   SetWindowPos(window_, HWND_TOPMOST, point.x, point.y + 4,
-               kWindowWidth, kWindowHeight,
+               kWindowWidth, theme_.window_height,
                SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
@@ -104,13 +113,13 @@ void CandidateWindow::Paint() {
   HDC device = BeginPaint(window_, &paint);
   RECT bounds{};
   GetClientRect(window_, &bounds);
-  HBRUSH background = CreateSolidBrush(RGB(32, 32, 32));
+  HBRUSH background = CreateSolidBrush(theme_.background);
   FillRect(device, &bounds, background);
   DeleteObject(background);
 
   SetBkMode(device, TRANSPARENT);
-  SetTextColor(device, RGB(245, 245, 245));
-  HFONT font = CreateFontW(-19, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+  SetTextColor(device, theme_.text);
+  HFONT font = CreateFontW(-theme_.font_size, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                            DEFAULT_PITCH, L"Microsoft YaHei UI");
@@ -126,13 +135,13 @@ void CandidateWindow::Paint() {
     GetTextExtentPoint32W(device, label.c_str(), static_cast<int>(label.size()),
                           &extent);
     const int item_width = extent.cx + 22;
-    RECT item{x, 4, x + item_width, kWindowHeight - 4};
+    RECT item{x, 4, x + item_width, theme_.window_height - 4};
     if (index == begin) {
-      HBRUSH selected = CreateSolidBrush(RGB(62, 62, 62));
+      HBRUSH selected = CreateSolidBrush(theme_.selected);
       FillRect(device, &item, selected);
       DeleteObject(selected);
-      RECT accent{x, 9, x + 2, kWindowHeight - 9};
-      HBRUSH blue = CreateSolidBrush(RGB(0, 120, 212));
+      RECT accent{x, 9, x + 2, theme_.window_height - 9};
+      HBRUSH blue = CreateSolidBrush(theme_.accent);
       FillRect(device, &accent, blue);
       DeleteObject(blue);
     }
@@ -141,8 +150,8 @@ void CandidateWindow::Paint() {
     x += item_width + 3;
   }
 
-  SetTextColor(device, RGB(190, 190, 190));
-  RECT pager{kWindowWidth - 55, 4, kWindowWidth - 8, kWindowHeight - 4};
+  SetTextColor(device, theme_.secondary_text);
+  RECT pager{kWindowWidth - 55, 4, kWindowWidth - 8, theme_.window_height - 4};
   DrawTextW(device, L"‹  ›", -1, &pager,
             DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
   SelectObject(device, old_font);

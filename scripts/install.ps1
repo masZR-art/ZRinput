@@ -14,6 +14,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 $source = (Resolve-Path (Join-Path $BuildDirectory 'Release\ZRinputTSF.dll')).Path
+$editorSource = (Resolve-Path (Join-Path $BuildDirectory 'Release\zrinput_theme_editor.exe')).Path
 $installDirectory = Join-Path $env:ProgramFiles 'ZRinput'
 New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
 $destination = Join-Path $installDirectory 'ZRinputTSF.dll'
@@ -28,12 +29,19 @@ if ($existing) {
 }
 
 Copy-Item -LiteralPath $source -Destination $destination -Force
+Copy-Item -LiteralPath $editorSource `
+  -Destination (Join-Path $installDirectory 'ZRinputThemeEditor.exe') -Force
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $lexiconSource = Join-Path $repositoryRoot 'data\default_lexicon.tsv'
 $dataDirectory = Join-Path $installDirectory 'data'
 New-Item -ItemType Directory -Path $dataDirectory -Force | Out-Null
 Copy-Item -LiteralPath $lexiconSource `
   -Destination (Join-Path $dataDirectory 'default_lexicon.tsv') -Force
+$themeSource = Join-Path $repositoryRoot 'themes\microsoft-dark.ini'
+$themeDirectory = Join-Path $installDirectory 'themes'
+New-Item -ItemType Directory -Path $themeDirectory -Force | Out-Null
+Copy-Item -LiteralPath $themeSource `
+  -Destination (Join-Path $themeDirectory 'microsoft-dark.ini') -Force
 $register = Start-Process "$env:SystemRoot\System32\regsvr32.exe" `
   -ArgumentList @('/s', ('"{0}"' -f $destination)) -Wait -PassThru
 if ($register.ExitCode -ne 0) {

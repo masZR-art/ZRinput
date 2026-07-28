@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/pinyin_engine.h"
+#include "windows/theme.h"
 
 #include <windows.h>
 #include <cstddef>
@@ -21,6 +22,7 @@ class CandidateWindow {
             std::size_t page,
             std::size_t page_size);
   void Hide();
+  void SetTheme(const Theme& theme);
 
  private:
   static LRESULT CALLBACK WindowProcedure(HWND window,
@@ -36,6 +38,7 @@ class CandidateWindow {
   std::size_t page_ = 0;
   std::size_t page_size_ = 5;
   bool preview_mode_ = false;
+  Theme theme_;
 };
 
 }  // namespace zrinput::windows

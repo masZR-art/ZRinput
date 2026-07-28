@@ -23,6 +23,7 @@ if(WIN32)
     src/windows/dllmain.cpp
     src/windows/exports.def
     src/windows/candidate_window.cpp
+    src/windows/theme.cpp
     src/windows/registration.cpp
     src/windows/text_service.cpp
   )
@@ -43,6 +44,7 @@ if(WIN32)
   add_executable(zrinput_candidate_preview WIN32
     tools/candidate_preview.cpp
     src/windows/candidate_window.cpp
+    src/windows/theme.cpp
   )
   target_link_libraries(zrinput_candidate_preview PRIVATE zrinput_core user32 gdi32)
   target_compile_features(zrinput_candidate_preview PRIVATE cxx_std_20)
@@ -52,6 +54,31 @@ if(WIN32)
     target_compile_options(zrinput_candidate_preview PRIVATE /utf-8 /W4 /permissive-)
   endif()
 
-  install(TARGETS zrinput_tsf RUNTIME DESTINATION .)
+  add_executable(zrinput_theme_editor WIN32
+    tools/theme_editor.cpp
+    src/windows/theme.cpp
+  )
+  target_link_libraries(zrinput_theme_editor PRIVATE user32 gdi32 comdlg32 shell32 ole32)
+  target_compile_features(zrinput_theme_editor PRIVATE cxx_std_20)
+  target_compile_definitions(zrinput_theme_editor PRIVATE UNICODE _UNICODE NOMINMAX)
+  target_include_directories(zrinput_theme_editor PRIVATE src)
+  if(MSVC)
+    target_compile_options(zrinput_theme_editor PRIVATE /utf-8 /W4 /permissive-)
+  endif()
+
+  add_executable(zrinput_theme_tests
+    tests/theme_tests.cpp
+    src/windows/theme.cpp
+  )
+  target_compile_features(zrinput_theme_tests PRIVATE cxx_std_20)
+  target_compile_definitions(zrinput_theme_tests PRIVATE UNICODE _UNICODE NOMINMAX)
+  target_include_directories(zrinput_theme_tests PRIVATE src)
+  if(MSVC)
+    target_compile_options(zrinput_theme_tests PRIVATE /utf-8 /W4 /permissive-)
+  endif()
+  add_test(NAME zrinput_theme_tests COMMAND zrinput_theme_tests)
+
+  install(TARGETS zrinput_tsf zrinput_theme_editor RUNTIME DESTINATION .)
   install(FILES data/default_lexicon.tsv DESTINATION data)
+  install(FILES themes/microsoft-dark.ini DESTINATION themes)
 endif()
