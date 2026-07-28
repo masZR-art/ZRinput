@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -24,6 +26,9 @@ class PersonalLanguageModel {
                const LearningEvent& context) const;
   std::vector<std::string> Predict(const LearningEvent& context,
                                    std::size_t limit) const;
+  bool Save(const std::filesystem::path& path) const;
+  bool Load(const std::filesystem::path& path);
+  void Clear();
   std::size_t size() const;
 
  private:
@@ -42,7 +47,10 @@ class PersonalLanguageModel {
                      bool accepted,
                      std::int64_t timestamp);
   static double UsageScore(const Usage& usage, std::int64_t now);
+  double ScoreUnlocked(const std::string& candidate,
+                       const LearningEvent& context) const;
 
+  mutable std::shared_mutex mutex_;
   std::unordered_map<std::string, CandidateUsage> usage_;
 };
 

@@ -1,5 +1,7 @@
 #include "core/pinyin_engine.h"
 
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 
 namespace {
@@ -67,6 +69,26 @@ int main() {
   const auto boundary_prediction = contextual.Predict(after_boundary, 3);
   Check(!boundary_prediction.empty() && boundary_prediction.front() == "天气",
         "sentence boundary should discard context from the previous sentence");
+
+  const auto memory_path = std::filesystem::temp_directory_path() /
+                           "zrinput-personal-memory-test.dat";
+  Check(contextual.Save(memory_path), "personal memory should save");
+  zrinput::PersonalLanguageModel restored;
+  Check(restored.Load(memory_path), "personal memory should load");
+  const auto restored_prediction = restored.Predict(evening, 2);
+  Check(restored_prediction == evening_prediction,
+        "predictions should survive a save and load round trip");
+
+  {
+    std::ofstream corrupt(memory_path, std::ios::binary | std::ios::app);
+    corrupt << "corruption";
+  }
+  const auto entries_before_failed_load = restored.size();
+  Check(!restored.Load(memory_path), "corrupted memory must be rejected");
+  Check(restored.size() == entries_before_failed_load,
+        "a failed load must not replace active memory");
+  std::error_code cleanup_error;
+  std::filesystem::remove(memory_path, cleanup_error);
 
   if (failures == 0)
     std::cout << "All ZRinput core tests passed.\n";

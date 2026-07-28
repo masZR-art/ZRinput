@@ -2,7 +2,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <iomanip>
 #include <set>
+#include <sstream>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 namespace zrinput {
 namespace {
@@ -16,11 +26,65 @@ bool IsSentenceBoundary(const std::string& token) {
          token.find("？") != std::string::npos ||
          token.find("；") != std::string::npos;
 }
+
+std::string Escape(const std::string& value) {
+  std::ostringstream output;
+  output << std::hex << std::setfill('0');
+  for (const unsigned char ch : value) {
+    if (ch == '%' || ch == '\t' || ch == '\n' || ch == '\r')
+      output << '%' << std::setw(2) << static_cast<unsigned int>(ch);
+    else
+      output << static_cast<char>(ch);
+  }
+  return output.str();
+}
+
+bool Unescape(const std::string& value, std::string& output) {
+  output.clear();
+  for (std::size_t i = 0; i < value.size(); ++i) {
+    if (value[i] != '%') {
+      output.push_back(value[i]);
+      continue;
+    }
+    if (i + 2 >= value.size())
+      return false;
+    unsigned int decoded = 0;
+    std::istringstream hex(value.substr(i + 1, 2));
+    hex >> std::hex >> decoded;
+    if (!hex || decoded > 0xff)
+      return false;
+    output.push_back(static_cast<char>(decoded));
+    i += 2;
+  }
+  return true;
+}
+
+std::uint64_t Checksum(const std::string& data) {
+  std::uint64_t hash = 14695981039346656037ull;
+  for (const unsigned char ch : data) {
+    hash ^= ch;
+    hash *= 1099511628211ull;
+  }
+  return hash;
+}
+
+std::vector<std::string> Split(const std::string& line) {
+  std::vector<std::string> fields;
+  std::size_t start = 0;
+  while (true) {
+    const auto tab = line.find('\t', start);
+    fields.push_back(line.substr(start, tab - start));
+    if (tab == std::string::npos)
+      return fields;
+    start = tab + 1;
+  }
+}
 }
 
 void PersonalLanguageModel::Accept(const LearningEvent& event) {
   if (event.private_mode || event.text.empty())
     return;
+  std::unique_lock lock(mutex_);
   Update(usage_["global"][event.text], true, event.timestamp);
   if (!event.input.empty())
     Update(usage_["input" + std::string(1, kSeparator) + event.input]
@@ -40,6 +104,7 @@ void PersonalLanguageModel::Accept(const LearningEvent& event) {
 void PersonalLanguageModel::Reject(const LearningEvent& event) {
   if (event.private_mode || event.text.empty())
     return;
+  std::unique_lock lock(mutex_);
   Update(usage_["global"][event.text], false, event.timestamp);
   const auto depth_limit =
       std::min<std::size_t>(4, EffectiveContextSize(event));
@@ -54,6 +119,13 @@ void PersonalLanguageModel::Reject(const LearningEvent& event) {
 
 double PersonalLanguageModel::Score(const std::string& candidate,
                                     const LearningEvent& context) const {
+  std::shared_lock lock(mutex_);
+  return ScoreUnlocked(candidate, context);
+}
+
+double PersonalLanguageModel::ScoreUnlocked(
+    const std::string& candidate,
+    const LearningEvent& context) const {
   double score = 0;
   const auto add = [&](const std::string& key, double weight) {
     const auto group = usage_.find(key);
@@ -80,6 +152,7 @@ double PersonalLanguageModel::Score(const std::string& candidate,
 std::vector<std::string> PersonalLanguageModel::Predict(
     const LearningEvent& context,
     std::size_t limit) const {
+  std::shared_lock lock(mutex_);
   std::set<std::string> candidates;
   const auto depth_limit =
       std::min<std::size_t>(4, EffectiveContextSize(context));
@@ -96,14 +169,120 @@ std::vector<std::string> PersonalLanguageModel::Predict(
   std::vector<std::string> result(candidates.begin(), candidates.end());
   std::stable_sort(result.begin(), result.end(), [&](const auto& left,
                                                      const auto& right) {
-    return Score(left, context) > Score(right, context);
+    return ScoreUnlocked(left, context) > ScoreUnlocked(right, context);
   });
   if (result.size() > limit)
     result.resize(limit);
   return result;
 }
 
+bool PersonalLanguageModel::Save(const std::filesystem::path& path) const {
+  std::shared_lock lock(mutex_);
+  std::vector<std::string> keys;
+  keys.reserve(usage_.size());
+  for (const auto& [key, unused] : usage_)
+    keys.push_back(key);
+  std::sort(keys.begin(), keys.end());
+
+  std::ostringstream payload;
+  for (const auto& key : keys) {
+    std::vector<std::string> candidates;
+    for (const auto& [candidate, unused] : usage_.at(key))
+      candidates.push_back(candidate);
+    std::sort(candidates.begin(), candidates.end());
+    for (const auto& candidate : candidates) {
+      const auto& item = usage_.at(key).at(candidate);
+      payload << Escape(key) << '\t' << Escape(candidate) << '\t'
+              << std::setprecision(17) << item.accepted << '\t'
+              << item.rejected << '\t' << item.last_used << '\n';
+    }
+  }
+  const std::string body = payload.str();
+  std::ostringstream checksum;
+  checksum << std::hex << Checksum(body);
+
+  std::error_code error;
+  if (!path.parent_path().empty())
+    std::filesystem::create_directories(path.parent_path(), error);
+  if (error)
+    return false;
+  auto temporary = path;
+  temporary += ".tmp";
+  std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+  if (!output)
+    return false;
+  output << "ZRINPUT_PLM\t1\t" << checksum.str() << '\n' << body;
+  output.flush();
+  if (!output)
+    return false;
+  output.close();
+
+#ifdef _WIN32
+  return MoveFileExW(temporary.c_str(), path.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+#else
+  std::filesystem::rename(temporary, path, error);
+  return !error;
+#endif
+}
+
+bool PersonalLanguageModel::Load(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input)
+    return false;
+  std::string header;
+  if (!std::getline(input, header))
+    return false;
+  const auto header_fields = Split(header);
+  if (header_fields.size() != 3 || header_fields[0] != "ZRINPUT_PLM" ||
+      header_fields[1] != "1")
+    return false;
+  const std::string body((std::istreambuf_iterator<char>(input)),
+                         std::istreambuf_iterator<char>());
+  std::ostringstream actual_checksum;
+  actual_checksum << std::hex << Checksum(body);
+  if (actual_checksum.str() != header_fields[2])
+    return false;
+
+  std::unordered_map<std::string, CandidateUsage> loaded;
+  std::istringstream lines(body);
+  std::string line;
+  while (std::getline(lines, line)) {
+    if (line.empty())
+      continue;
+    const auto fields = Split(line);
+    if (fields.size() != 5)
+      return false;
+    std::string key;
+    std::string candidate;
+    if (!Unescape(fields[0], key) || !Unescape(fields[1], candidate) ||
+        candidate.empty())
+      return false;
+    try {
+      Usage item;
+      item.accepted = std::stod(fields[2]);
+      item.rejected = std::stod(fields[3]);
+      item.last_used = std::stoll(fields[4]);
+      if (!std::isfinite(item.accepted) || !std::isfinite(item.rejected) ||
+          item.accepted < 0 || item.rejected < 0)
+        return false;
+      loaded[key][candidate] = item;
+    } catch (...) {
+      return false;
+    }
+  }
+  std::unique_lock lock(mutex_);
+  usage_.swap(loaded);
+  return true;
+}
+
+void PersonalLanguageModel::Clear() {
+  std::unique_lock lock(mutex_);
+  usage_.clear();
+}
+
 std::size_t PersonalLanguageModel::size() const {
+  std::shared_lock lock(mutex_);
   std::size_t result = 0;
   for (const auto& [unused, candidates] : usage_)
     result += candidates.size();
