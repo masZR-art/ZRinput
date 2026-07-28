@@ -3,3 +3,5 @@
 *.user
 *.pdb
 *.obj
+/_CPack_Packages/
+/ZRinput-*.zip

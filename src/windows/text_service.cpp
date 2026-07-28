@@ -61,10 +61,12 @@ class CompositionEditSession final : public ITfEditSession {
  public:
   CompositionEditSession(ITfContext* context,
                          ITfComposition** composition,
+                         ITfCompositionSink* composition_sink,
                          std::wstring text,
                          bool end_composition)
       : context_(context),
         composition_(composition),
+        composition_sink_(composition_sink),
         text_(std::move(text)),
         end_composition_(end_composition) {
     context_->AddRef();
@@ -126,7 +128,7 @@ class CompositionEditSession final : public ITfEditSession {
         reinterpret_cast<void**>(&context_composition));
     if (SUCCEEDED(result)) {
       result = context_composition->StartComposition(
-          cookie, range, nullptr, composition_);
+          cookie, range, composition_sink_, composition_);
       context_composition->Release();
     }
     if (SUCCEEDED(result))
@@ -146,6 +148,7 @@ class CompositionEditSession final : public ITfEditSession {
   std::atomic<ULONG> reference_count_{1};
   ITfContext* context_;
   ITfComposition** composition_;
+  ITfCompositionSink* composition_sink_;
   std::wstring text_;
   bool end_composition_;
 };
@@ -199,6 +202,8 @@ STDMETHODIMP TextService::QueryInterface(REFIID interface_id, void** object) {
     *object = static_cast<ITfTextInputProcessor*>(this);
   else if (interface_id == IID_ITfKeyEventSink)
     *object = static_cast<ITfKeyEventSink*>(this);
+  else if (interface_id == IID_ITfCompositionSink)
+    *object = static_cast<ITfCompositionSink*>(this);
   if (!*object)
     return E_NOINTERFACE;
   AddRef();
@@ -307,10 +312,25 @@ STDMETHODIMP TextService::OnPreservedKey(ITfContext*, REFGUID, BOOL* eaten) {
   return S_OK;
 }
 
+STDMETHODIMP TextService::OnCompositionTerminated(
+    TfEditCookie,
+    ITfComposition* composition) {
+  if (composition_ == composition) {
+    SafeRelease(composition_);
+    SafeRelease(composition_context_);
+  }
+  if (!ending_composition_)
+    Reset();
+  return S_OK;
+}
+
 bool TextService::ShouldHandle(WPARAM key) const {
-  return (key >= 'A' && key <= 'Z') ||
+  const bool command_modifier = (GetKeyState(VK_CONTROL) & 0x8000) != 0 ||
+                                (GetKeyState(VK_MENU) & 0x8000) != 0;
+  return (!command_modifier && key >= 'A' && key <= 'Z') ||
          (!input_.empty() && (key == VK_BACK || key == VK_ESCAPE ||
-                             key == VK_SPACE || key == VK_LEFT ||
+                             key == VK_SPACE || key == VK_RETURN ||
+                             key == VK_LEFT ||
                              key == VK_RIGHT || key == VK_PRIOR ||
                              key == VK_NEXT || (key >= '1' && key <= '5')));
 }
@@ -344,6 +364,11 @@ bool TextService::HandleKey(ITfContext* context, WPARAM key) {
   }
   if (key == VK_RIGHT || key == VK_NEXT) {
     ChangePage(1);
+    return true;
+  }
+  if (key == VK_RETURN || (key == VK_SPACE && candidates_.empty())) {
+    if (SUCCEEDED(Commit(context, input_)))
+      Reset();
     return true;
   }
   std::size_t index = 0;
@@ -414,12 +439,14 @@ HRESULT TextService::UpdateComposition(ITfContext* context,
   if (!context)
     return E_INVALIDARG;
   auto* edit_session = new (std::nothrow) CompositionEditSession(
-      context, &composition_, text, end_composition);
+      context, &composition_, this, text, end_composition);
   if (!edit_session)
     return E_OUTOFMEMORY;
   HRESULT session_result = E_FAIL;
+  ending_composition_ = end_composition;
   const HRESULT request_result = context->RequestEditSession(
       client_id_, edit_session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+  ending_composition_ = false;
   edit_session->Release();
   const HRESULT result = FAILED(request_result) ? request_result : session_result;
   if (SUCCEEDED(result)) {

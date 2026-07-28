@@ -78,7 +78,26 @@ if(WIN32)
   endif()
   add_test(NAME zrinput_theme_tests COMMAND zrinput_theme_tests)
 
-  install(TARGETS zrinput_tsf zrinput_theme_editor RUNTIME DESTINATION .)
+  add_executable(zrinput_profile_tool tools/profile_tool.cpp)
+  target_link_libraries(zrinput_profile_tool PRIVATE ole32)
+  target_compile_features(zrinput_profile_tool PRIVATE cxx_std_20)
+  target_compile_definitions(zrinput_profile_tool PRIVATE UNICODE _UNICODE NOMINMAX)
+  target_include_directories(zrinput_profile_tool PRIVATE src)
+  if(MSVC)
+    target_compile_options(zrinput_profile_tool PRIVATE /utf-8 /W4 /permissive-)
+  endif()
+
+  install(TARGETS zrinput_tsf zrinput_theme_editor zrinput_profile_tool
+          RUNTIME DESTINATION .)
   install(FILES data/default_lexicon.tsv DESTINATION data)
   install(FILES themes/microsoft-dark.ini DESTINATION themes)
+  install(PROGRAMS scripts/install.ps1 scripts/update.ps1 scripts/uninstall.ps1
+          DESTINATION scripts)
 endif()
+
+set(CPACK_GENERATOR ZIP)
+set(CPACK_PACKAGE_NAME ZRinput)
+set(CPACK_PACKAGE_VERSION "0.1.0-alpha.1")
+set(CPACK_PACKAGE_FILE_NAME "ZRinput-0.1.0-alpha.1-windows-x64")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+include(CPack)

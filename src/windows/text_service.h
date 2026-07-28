@@ -15,7 +15,8 @@ extern std::atomic<long> g_object_count;
 extern std::atomic<long> g_server_locks;
 
 class TextService final : public ITfTextInputProcessor,
-                          public ITfKeyEventSink {
+                          public ITfKeyEventSink,
+                          public ITfCompositionSink {
  public:
   TextService();
 
@@ -47,6 +48,9 @@ class TextService final : public ITfTextInputProcessor,
   STDMETHODIMP OnPreservedKey(ITfContext* context,
                               REFGUID guid,
                               BOOL* eaten) override;
+  STDMETHODIMP OnCompositionTerminated(
+      TfEditCookie cookie,
+      ITfComposition* composition) override;
 
  private:
   ~TextService();
@@ -66,6 +70,7 @@ class TextService final : public ITfTextInputProcessor,
   ITfThreadMgr* thread_manager_ = nullptr;
   ITfContext* composition_context_ = nullptr;
   ITfComposition* composition_ = nullptr;
+  bool ending_composition_ = false;
   TfClientId client_id_ = TF_CLIENTID_NULL;
   PinyinEngine engine_;
   std::filesystem::path memory_path_;

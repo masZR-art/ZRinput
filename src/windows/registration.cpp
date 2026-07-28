@@ -60,6 +60,11 @@ HRESULT RegisterProfile(HMODULE module) {
         kLanguageProfileGuid, description,
         static_cast<ULONG>(std::size(description) - 1), module_path,
         static_cast<ULONG>(wcslen(module_path)), 0);
+  if (SUCCEEDED(result))
+    result = profiles->EnableLanguageProfile(
+        kTextServiceClsid,
+        MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED),
+        kLanguageProfileGuid, TRUE);
   profiles->Release();
   return result;
 }
