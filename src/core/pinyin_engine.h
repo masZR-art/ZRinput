@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/personal_language_model.h"
+#include "core/pinyin_parser.h"
 
 #include <string>
 #include <unordered_map>
@@ -23,6 +24,7 @@ class PinyinEngine {
 
  private:
   std::unordered_map<std::string, std::vector<Candidate>> dictionary_;
+  PinyinParser parser_;
   PersonalLanguageModel memory_;
 };
 

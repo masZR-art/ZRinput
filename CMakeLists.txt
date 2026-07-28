@@ -3,6 +3,7 @@ project(ZRinput VERSION 0.1.0 LANGUAGES CXX)
 
 add_library(zrinput_core STATIC
   src/core/personal_language_model.cpp
+  src/core/pinyin_parser.cpp
   src/core/pinyin_engine.cpp
 )
 target_include_directories(zrinput_core PUBLIC src)

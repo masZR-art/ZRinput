@@ -15,9 +15,21 @@ void Check(bool condition, const char* message) {
 }
 
 int main() {
+  zrinput::PinyinParser parser;
+  parser.RegisterSyllable("xian");
+  parser.RegisterSyllable("xi");
+  parser.RegisterSyllable("an");
+  const auto ambiguous_paths = parser.Parse("xian");
+  Check(ambiguous_paths.size() == 2,
+        "continuous pinyin should preserve ambiguous syllable paths");
+  const auto separated_paths = parser.Parse("xi'an");
+  Check(separated_paths.size() == 1 && separated_paths.front().size() == 2,
+        "explicit boundaries should remove segmentation ambiguity");
+
   zrinput::PinyinEngine engine;
-  engine.AddEntry("xianzai", "现在", 1.0);
-  engine.AddEntry("xianzai", "先在", 1.1);
+  engine.AddEntry("xian zai", "现在", 1.0);
+  engine.AddEntry("xian zai", "先在", 1.1);
+  engine.AddEntry("xi an", "西安", 0.9);
 
   zrinput::LearningEvent learned{"现在", "xianzai", "editor", {"我们"},
                                  1'700'000'000, false};
@@ -35,6 +47,23 @@ int main() {
   const auto corrected = engine.Query(request, 5);
   Check(!corrected.empty() && corrected.front().text == "先在",
         "negative feedback should correct the learned preference");
+
+  auto forced_boundary = request;
+  forced_boundary.input = "xi'an";
+  const auto xian = engine.Query(forced_boundary, 5);
+  Check(!xian.empty() && xian.front().text == "西安",
+        "apostrophe should force a syllable boundary");
+
+  forced_boundary.input = "xi1 an1";
+  const auto toned_xian = engine.Query(forced_boundary, 5);
+  Check(!toned_xian.empty() && toned_xian.front().text == "西安",
+        "tone digits should not change dictionary lookup");
+
+  engine.AddEntry("lv se", "绿色", 1.0);
+  forced_boundary.input = "lü4se4";
+  const auto green = engine.Query(forced_boundary, 5);
+  Check(!green.empty() && green.front().text == "绿色",
+        "umlaut u should normalize to v");
 
   auto private_event = learned;
   private_event.text = "秘密";
