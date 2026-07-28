@@ -28,6 +28,12 @@ if ($existing) {
 }
 
 Copy-Item -LiteralPath $source -Destination $destination -Force
+$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$lexiconSource = Join-Path $repositoryRoot 'data\default_lexicon.tsv'
+$dataDirectory = Join-Path $installDirectory 'data'
+New-Item -ItemType Directory -Path $dataDirectory -Force | Out-Null
+Copy-Item -LiteralPath $lexiconSource `
+  -Destination (Join-Path $dataDirectory 'default_lexicon.tsv') -Force
 $register = Start-Process "$env:SystemRoot\System32\regsvr32.exe" `
   -ArgumentList @('/s', ('"{0}"' -f $destination)) -Wait -PassThru
 if ($register.ExitCode -ne 0) {

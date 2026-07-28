@@ -53,4 +53,5 @@ if(WIN32)
   endif()
 
   install(TARGETS zrinput_tsf RUNTIME DESTINATION .)
+  install(FILES data/default_lexicon.tsv DESTINATION data)
 endif()

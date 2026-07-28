@@ -22,6 +22,6 @@ if (Test-Path $dll) {
   Remove-Item -LiteralPath $dll -Force
 }
 if (Test-Path $installDirectory) {
-  Remove-Item -LiteralPath $installDirectory -Force
+  Remove-Item -LiteralPath $installDirectory -Recurse -Force
 }
 Write-Host 'ZRinput uninstalled. Personal memory was preserved.'

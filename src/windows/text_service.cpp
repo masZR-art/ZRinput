@@ -6,6 +6,7 @@
 #include <filesystem>
 
 namespace zrinput::windows {
+extern HMODULE g_module;
 namespace {
 
 template <typename T>
@@ -44,6 +45,16 @@ std::filesystem::path UserDataPath() {
   std::error_code error;
   std::filesystem::create_directories(result, error);
   return error ? std::filesystem::path{} : result;
+}
+
+std::filesystem::path ModuleDirectory() {
+  std::wstring path(32768, L'\0');
+  const DWORD length = GetModuleFileNameW(g_module, path.data(),
+                                          static_cast<DWORD>(path.size()));
+  if (!length || length >= path.size())
+    return {};
+  path.resize(length);
+  return std::filesystem::path(path).parent_path();
 }
 
 class CommitEditSession final : public ITfEditSession {
@@ -106,6 +117,15 @@ TextService::TextService() {
   engine_.AddEntry("de", "的", 100);
   engine_.AddEntry("shu ru fa", "输入法", 100);
   engine_.AddEntry("zhong wen", "中文", 100);
+  engine_.AddEntry("emoji", "😀", 100);
+  engine_.AddEntry("emoji", "😂", 95);
+  engine_.AddEntry("emoji", "❤️", 90);
+  engine_.AddEntry("emoji", "👍", 85);
+  engine_.AddEntry("emoji", "🎉", 80);
+  const auto module_directory = ModuleDirectory();
+  if (!module_directory.empty())
+    engine_.LoadDictionary(module_directory / L"data" /
+                           L"default_lexicon.tsv", false);
   const auto data_path = UserDataPath();
   if (!data_path.empty()) {
     memory_path_ = data_path / L"personal-model.zrim";

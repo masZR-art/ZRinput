@@ -1,0 +1,94 @@
+# pinyin<TAB>text<TAB>frequency
+wo	我	10000
+wo men	我们	9800
+ni	你	10000
+ni men	你们	9400
+ta	他	9500
+ta men	他们	9000
+shi	是	10000
+bu	不	10000
+de	的	10000
+le	了	9800
+zai	在	9800
+you	有	9600
+he	和	9500
+ren	人	9300
+zhe	这	9300
+na	那	9100
+yi ge	一个	9400
+mei you	没有	9300
+ke yi	可以	9200
+bu shi	不是	9100
+xian zai	现在	9500
+jin tian	今天	9000
+ming tian	明天	8800
+zuo tian	昨天	8500
+shi jian	时间	8800
+shi hou	时候	8700
+yin wei	因为	9000
+suo yi	所以	9000
+dan shi	但是	8900
+ru guo	如果	8800
+ran hou	然后	8700
+hai shi	还是	8600
+yi jing	已经	8500
+ying gai	应该	8500
+zhi dao	知道	8400
+ju de	觉得	8400
+xiang yao	想要	8300
+xu yao	需要	8600
+zen me	怎么	9000
+shen me	什么	9200
+wei shen me	为什么	8800
+zhe ge	这个	9200
+na ge	那个	9000
+na li	哪里	8600
+zhe li	这里	8500
+dui	对	9200
+hao	好	9600
+hao de	好的	9500
+ke shi	可是	8300
+zhen de	真的	9000
+fei chang	非常	8500
+yi qi	一起	8400
+zi ji	自己	9000
+da jia	大家	8800
+peng you	朋友	8500
+gong zuo	工作	8900
+xue xi	学习	8700
+sheng huo	生活	8600
+wen ti	问题	8900
+fang fa	方法	8500
+dong xi	东西	8700
+shi qing	事情	8800
+di fang	地方	8600
+zhong guo	中国	9200
+zhong wen	中文	9000
+shu ru fa	输入法	8800
+pin yin	拼音	8600
+ji suan ji	计算机	8200
+ruan jian	软件	8400
+xi tong	系统	8500
+she zhi	设置	8500
+pei zhi	配置	8200
+wen jian	文件	8500
+bao cun	保存	8400
+da kai	打开	8500
+guan bi	关闭	8300
+que ren	确认	8400
+qu xiao	取消	8300
+wan cheng	完成	8500
+kai shi	开始	8600
+ji xu	继续	8500
+qing	请	8900
+xie xie	谢谢	9000
+mei guan xi	没关系	8500
+dui bu qi	对不起	8600
+zai jian	再见	8500
+zao shang hao	早上好	8200
+wan shang hao	晚上好	8200
+emoji	😀	1000
+emoji	😂	950
+emoji	❤️	900
+emoji	👍	850
+emoji	🎉	800
