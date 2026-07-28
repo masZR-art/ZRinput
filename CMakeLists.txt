@@ -17,3 +17,24 @@ target_link_libraries(zrinput_core_tests PRIVATE zrinput_core)
 
 enable_testing()
 add_test(NAME zrinput_core_tests COMMAND zrinput_core_tests)
+
+if(WIN32)
+  add_library(zrinput_tsf SHARED
+    src/windows/dllmain.cpp
+    src/windows/exports.def
+    src/windows/registration.cpp
+    src/windows/text_service.cpp
+  )
+  target_link_libraries(zrinput_tsf PRIVATE
+    zrinput_core
+    ole32
+    advapi32
+  )
+  target_compile_features(zrinput_tsf PRIVATE cxx_std_20)
+  target_compile_definitions(zrinput_tsf PRIVATE UNICODE _UNICODE NOMINMAX)
+  target_include_directories(zrinput_tsf PRIVATE src)
+  set_target_properties(zrinput_tsf PROPERTIES OUTPUT_NAME "ZRinputTSF")
+  if(MSVC)
+    target_compile_options(zrinput_tsf PRIVATE /utf-8 /W4 /permissive-)
+  endif()
+endif()
