@@ -1,0 +1,23 @@
+# ZRinput
+
+ZRinput 是一个从零开发的 Windows 中文输入法，不包含 Rime、Weasel 或其他
+输入法项目的源代码与 Git 历史。
+
+当前阶段正在实现独立输入核心：拼音解析、词典查询、个人语言记忆、上下文
+联想和候选排序。后续模块包括 Windows TSF 前端、Win11 候选窗、Emoji、主题
+编辑器、安装器及自动更新。
+
+## 构建核心测试
+
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+## 隐私原则
+
+- 个人记忆默认只保存在本机。
+- 密码框与隐私模式不学习。
+- 用户可以查看、固定、遗忘、导出或清空记忆。
+- 网络建议是可选模块，不与本地个人记忆混合上传。
