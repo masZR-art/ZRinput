@@ -29,6 +29,7 @@ if(WIN32)
     zrinput_core
     ole32
     advapi32
+    shell32
   )
   target_compile_features(zrinput_tsf PRIVATE cxx_std_20)
   target_compile_definitions(zrinput_tsf PRIVATE UNICODE _UNICODE NOMINMAX)
@@ -37,4 +38,6 @@ if(WIN32)
   if(MSVC)
     target_compile_options(zrinput_tsf PRIVATE /utf-8 /W4 /permissive-)
   endif()
+
+  install(TARGETS zrinput_tsf RUNTIME DESTINATION .)
 endif()

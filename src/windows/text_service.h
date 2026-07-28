@@ -4,6 +4,7 @@
 
 #include <msctf.h>
 #include <atomic>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,7 @@ class TextService final : public ITfTextInputProcessor,
   ITfThreadMgr* thread_manager_ = nullptr;
   TfClientId client_id_ = TF_CLIENTID_NULL;
   PinyinEngine engine_;
+  std::filesystem::path memory_path_;
   std::string input_;
   std::vector<Candidate> candidates_;
   std::vector<std::string> committed_context_;

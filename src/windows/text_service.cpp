@@ -1,7 +1,9 @@
 #include "windows/text_service.h"
 
 #include <windows.h>
+#include <shlobj.h>
 #include <algorithm>
+#include <filesystem>
 
 namespace zrinput::windows {
 namespace {
@@ -29,6 +31,19 @@ std::wstring Utf8ToWide(const std::string& text) {
       length)
     return {};
   return result;
+}
+
+std::filesystem::path UserDataPath() {
+  PWSTR local_app_data = nullptr;
+  if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_CREATE,
+                                  nullptr, &local_app_data)))
+    return {};
+  std::filesystem::path result(local_app_data);
+  CoTaskMemFree(local_app_data);
+  result /= L"ZRinput";
+  std::error_code error;
+  std::filesystem::create_directories(result, error);
+  return error ? std::filesystem::path{} : result;
 }
 
 class CommitEditSession final : public ITfEditSession {
@@ -91,9 +106,16 @@ TextService::TextService() {
   engine_.AddEntry("de", "的", 100);
   engine_.AddEntry("shu ru fa", "输入法", 100);
   engine_.AddEntry("zhong wen", "中文", 100);
+  const auto data_path = UserDataPath();
+  if (!data_path.empty()) {
+    memory_path_ = data_path / L"personal-model.zrim";
+    engine_.memory().Load(memory_path_);
+  }
 }
 
 TextService::~TextService() {
+  if (!memory_path_.empty())
+    engine_.memory().Save(memory_path_);
   Deactivate();
   --g_object_count;
 }
@@ -246,6 +268,8 @@ bool TextService::HandleKey(ITfContext* context, WPARAM key) {
       event.context = committed_context_;
       event.timestamp = static_cast<std::int64_t>(time(nullptr));
       engine_.memory().Accept(event);
+      if (!memory_path_.empty())
+        engine_.memory().Save(memory_path_);
       committed_context_.push_back(selected);
       if (committed_context_.size() > 4)
         committed_context_.erase(committed_context_.begin());
