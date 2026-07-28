@@ -12,6 +12,7 @@ using SyllablePath = std::vector<std::string>;
 class PinyinParser {
  public:
   bool RegisterSyllable(std::string syllable);
+  void Clear();
   std::vector<SyllablePath> Parse(const std::string& input,
                                   std::size_t max_paths = 32) const;
 

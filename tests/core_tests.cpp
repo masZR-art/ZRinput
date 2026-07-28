@@ -65,6 +65,28 @@ int main() {
   Check(!green.empty() && green.front().text == "绿色",
         "umlaut u should normalize to v");
 
+  const auto dictionary_path = std::filesystem::temp_directory_path() /
+                               "zrinput-dictionary-test.tsv";
+  {
+    std::ofstream dictionary(dictionary_path, std::ios::binary);
+    dictionary << "# pinyin\\ttext\\tfrequency\n"
+               << "xian zai\t现在\t12.5\n"
+               << "xian zhuang\t现状\t11\n"
+               << "invalid row\n";
+  }
+  zrinput::PinyinEngine loaded_engine;
+  const auto load_result = loaded_engine.LoadDictionary(dictionary_path);
+  Check(load_result && load_result.loaded == 2 && load_result.skipped == 1,
+        "dictionary loader should report accepted and malformed rows");
+  auto prefix_request = request;
+  prefix_request.input = "xianz";
+  const auto prefix_candidates = loaded_engine.Query(prefix_request, 5);
+  Check(prefix_candidates.size() == 2 &&
+            prefix_candidates.front().is_completion,
+        "incomplete pinyin should produce marked prefix candidates");
+  std::error_code dictionary_cleanup_error;
+  std::filesystem::remove(dictionary_path, dictionary_cleanup_error);
+
   auto private_event = learned;
   private_event.text = "秘密";
   private_event.private_mode = true;

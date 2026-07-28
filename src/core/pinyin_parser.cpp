@@ -39,6 +39,10 @@ bool PinyinParser::RegisterSyllable(std::string syllable) {
   return syllables_.insert(std::move(syllable)).second;
 }
 
+void PinyinParser::Clear() {
+  syllables_.clear();
+}
+
 std::vector<SyllablePath> PinyinParser::Parse(const std::string& input,
                                               std::size_t max_paths) const {
   if (max_paths == 0)
