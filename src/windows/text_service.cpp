@@ -57,10 +57,16 @@ std::filesystem::path ModuleDirectory() {
   return std::filesystem::path(path).parent_path();
 }
 
-class CommitEditSession final : public ITfEditSession {
+class CompositionEditSession final : public ITfEditSession {
  public:
-  CommitEditSession(ITfContext* context, std::wstring text)
-      : context_(context), text_(std::move(text)) {
+  CompositionEditSession(ITfContext* context,
+                         ITfComposition** composition,
+                         std::wstring text,
+                         bool end_composition)
+      : context_(context),
+        composition_(composition),
+        text_(std::move(text)),
+        end_composition_(end_composition) {
     context_->AddRef();
   }
 
@@ -83,6 +89,24 @@ class CommitEditSession final : public ITfEditSession {
     return count;
   }
   STDMETHODIMP DoEditSession(TfEditCookie cookie) override {
+    if (*composition_) {
+      ITfRange* range = nullptr;
+      HRESULT result = (*composition_)->GetRange(&range);
+      if (SUCCEEDED(result)) {
+        result = range->SetText(cookie, 0, text_.c_str(),
+                                static_cast<LONG>(text_.size()));
+        range->Release();
+      }
+      if (SUCCEEDED(result) && end_composition_) {
+        result = (*composition_)->EndComposition(cookie);
+        if (SUCCEEDED(result))
+          SafeRelease(*composition_);
+      }
+      return result;
+    }
+    if (text_.empty())
+      return S_OK;
+
     ITfInsertAtSelection* insert = nullptr;
     HRESULT result = context_->QueryInterface(
         IID_ITfInsertAtSelection, reinterpret_cast<void**>(&insert));
@@ -91,18 +115,39 @@ class CommitEditSession final : public ITfEditSession {
 
     ITfRange* range = nullptr;
     result = insert->InsertTextAtSelection(
-        cookie, TF_IAS_NOQUERY, text_.c_str(), static_cast<LONG>(text_.size()),
-        &range);
+        cookie, TF_IAS_QUERYONLY, nullptr, 0, &range);
     insert->Release();
+    if (FAILED(result))
+      return result;
+
+    ITfContextComposition* context_composition = nullptr;
+    result = context_->QueryInterface(
+        IID_ITfContextComposition,
+        reinterpret_cast<void**>(&context_composition));
+    if (SUCCEEDED(result)) {
+      result = context_composition->StartComposition(
+          cookie, range, nullptr, composition_);
+      context_composition->Release();
+    }
+    if (SUCCEEDED(result))
+      result = range->SetText(cookie, 0, text_.c_str(),
+                              static_cast<LONG>(text_.size()));
+    if (SUCCEEDED(result) && end_composition_) {
+      result = (*composition_)->EndComposition(cookie);
+      if (SUCCEEDED(result))
+        SafeRelease(*composition_);
+    }
     SafeRelease(range);
     return result;
   }
 
  private:
-  ~CommitEditSession() { SafeRelease(context_); }
+  ~CompositionEditSession() { SafeRelease(context_); }
   std::atomic<ULONG> reference_count_{1};
   ITfContext* context_;
+  ITfComposition** composition_;
   std::wstring text_;
+  bool end_composition_;
 };
 
 }  // namespace
@@ -189,6 +234,7 @@ STDMETHODIMP TextService::Activate(ITfThreadMgr* thread_manager,
 }
 
 STDMETHODIMP TextService::Deactivate() {
+  CancelComposition();
   if (thread_manager_) {
     ITfKeystrokeMgr* keystroke_manager = nullptr;
     if (SUCCEEDED(thread_manager_->QueryInterface(
@@ -199,14 +245,18 @@ STDMETHODIMP TextService::Deactivate() {
     }
   }
   SafeRelease(thread_manager_);
+  SafeRelease(composition_);
+  SafeRelease(composition_context_);
   client_id_ = TF_CLIENTID_NULL;
   Reset();
   return S_OK;
 }
 
 STDMETHODIMP TextService::OnSetFocus(BOOL foreground) {
-  if (!foreground)
+  if (!foreground) {
+    CancelComposition();
     Reset();
+  }
   return S_OK;
 }
 
@@ -268,6 +318,10 @@ bool TextService::ShouldHandle(WPARAM key) const {
 bool TextService::HandleKey(ITfContext* context, WPARAM key) {
   if (key >= 'A' && key <= 'Z') {
     input_.push_back(static_cast<char>('a' + key - 'A'));
+    if (FAILED(UpdateComposition(context, Utf8ToWide(input_), false))) {
+      input_.pop_back();
+      return false;
+    }
     RefreshCandidates();
     return true;
   }
@@ -275,10 +329,12 @@ bool TextService::HandleKey(ITfContext* context, WPARAM key) {
     return false;
   if (key == VK_BACK) {
     input_.pop_back();
+    UpdateComposition(context, Utf8ToWide(input_), input_.empty());
     RefreshCandidates();
     return true;
   }
   if (key == VK_ESCAPE) {
+    CancelComposition();
     Reset();
     return true;
   }
@@ -349,14 +405,38 @@ HRESULT TextService::Commit(ITfContext* context,
   const std::wstring text = Utf8ToWide(utf8_text);
   if (text.empty())
     return E_INVALIDARG;
-  auto* edit_session = new (std::nothrow) CommitEditSession(context, text);
+  return UpdateComposition(context, text, true);
+}
+
+HRESULT TextService::UpdateComposition(ITfContext* context,
+                                       const std::wstring& text,
+                                       bool end_composition) {
+  if (!context)
+    return E_INVALIDARG;
+  auto* edit_session = new (std::nothrow) CompositionEditSession(
+      context, &composition_, text, end_composition);
   if (!edit_session)
     return E_OUTOFMEMORY;
   HRESULT session_result = E_FAIL;
   const HRESULT request_result = context->RequestEditSession(
       client_id_, edit_session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
   edit_session->Release();
-  return FAILED(request_result) ? request_result : session_result;
+  const HRESULT result = FAILED(request_result) ? request_result : session_result;
+  if (SUCCEEDED(result)) {
+    if (end_composition || !composition_) {
+      SafeRelease(composition_context_);
+    } else if (composition_context_ != context) {
+      SafeRelease(composition_context_);
+      composition_context_ = context;
+      composition_context_->AddRef();
+    }
+  }
+  return result;
+}
+
+void TextService::CancelComposition() {
+  if (composition_context_ && composition_)
+    UpdateComposition(composition_context_, L"", true);
 }
 
 void TextService::Reset() {

@@ -55,11 +55,17 @@ class TextService final : public ITfTextInputProcessor,
   bool HandleKey(ITfContext* context, WPARAM key);
   void RefreshCandidates();
   void ChangePage(int delta);
+  HRESULT UpdateComposition(ITfContext* context,
+                            const std::wstring& text,
+                            bool end_composition);
+  void CancelComposition();
   HRESULT Commit(ITfContext* context, const std::string& utf8_text);
   void Reset();
 
   std::atomic<ULONG> reference_count_{1};
   ITfThreadMgr* thread_manager_ = nullptr;
+  ITfContext* composition_context_ = nullptr;
+  ITfComposition* composition_ = nullptr;
   TfClientId client_id_ = TF_CLIENTID_NULL;
   PinyinEngine engine_;
   std::filesystem::path memory_path_;
