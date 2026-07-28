@@ -42,6 +42,32 @@ int main() {
   Check(engine.memory().size() == before,
         "private mode must not alter personal memory");
 
+  zrinput::PersonalLanguageModel contextual;
+  zrinput::LearningEvent hotpot{"火锅", "huoguo", "chat",
+                                {"今天", "晚上", "吃"}, 1'700'000'100,
+                                false};
+  zrinput::LearningEvent rice{"米饭", "mifan", "chat", {"中午", "吃"},
+                              1'700'000'100, false};
+  for (int i = 0; i < 3; ++i)
+    contextual.Accept(hotpot);
+  for (int i = 0; i < 4; ++i)
+    contextual.Accept(rice);
+  auto evening = hotpot;
+  evening.text.clear();
+  const auto evening_prediction = contextual.Predict(evening, 2);
+  Check(!evening_prediction.empty() && evening_prediction.front() == "火锅",
+        "longer ordered context should beat a more frequent one-word match");
+
+  zrinput::LearningEvent after_boundary{
+      "天气", "tianqi", "chat", {"旧话题", "。", "今天"},
+      1'700'000'200, false};
+  contextual.Accept(after_boundary);
+  after_boundary.text.clear();
+  after_boundary.context = {"完全不同", "。", "今天"};
+  const auto boundary_prediction = contextual.Predict(after_boundary, 3);
+  Check(!boundary_prediction.empty() && boundary_prediction.front() == "天气",
+        "sentence boundary should discard context from the previous sentence");
+
   if (failures == 0)
     std::cout << "All ZRinput core tests passed.\n";
   return failures == 0 ? 0 : 1;

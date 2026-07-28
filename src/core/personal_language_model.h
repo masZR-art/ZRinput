@@ -37,6 +37,7 @@ class PersonalLanguageModel {
   static std::string ContextKey(const LearningEvent& event,
                                 std::size_t depth,
                                 bool include_application);
+  static std::size_t EffectiveContextSize(const LearningEvent& event);
   static void Update(Usage& usage,
                      bool accepted,
                      std::int64_t timestamp);

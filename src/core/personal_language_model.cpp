@@ -8,6 +8,14 @@ namespace zrinput {
 namespace {
 constexpr char kSeparator = '\x1f';
 constexpr double kHalfLifeSeconds = 120.0 * 24.0 * 60.0 * 60.0;
+
+bool IsSentenceBoundary(const std::string& token) {
+  return token.find_first_of(".!?;\n\r") != std::string::npos ||
+         token.find("。") != std::string::npos ||
+         token.find("！") != std::string::npos ||
+         token.find("？") != std::string::npos ||
+         token.find("；") != std::string::npos;
+}
 }
 
 void PersonalLanguageModel::Accept(const LearningEvent& event) {
@@ -18,7 +26,8 @@ void PersonalLanguageModel::Accept(const LearningEvent& event) {
     Update(usage_["input" + std::string(1, kSeparator) + event.input]
                  [event.text],
            true, event.timestamp);
-  const auto depth_limit = std::min<std::size_t>(4, event.context.size());
+  const auto depth_limit =
+      std::min<std::size_t>(4, EffectiveContextSize(event));
   for (std::size_t depth = 1; depth <= depth_limit; ++depth) {
     Update(usage_[ContextKey(event, depth, false)][event.text], true,
            event.timestamp);
@@ -32,7 +41,8 @@ void PersonalLanguageModel::Reject(const LearningEvent& event) {
   if (event.private_mode || event.text.empty())
     return;
   Update(usage_["global"][event.text], false, event.timestamp);
-  const auto depth_limit = std::min<std::size_t>(4, event.context.size());
+  const auto depth_limit =
+      std::min<std::size_t>(4, EffectiveContextSize(event));
   for (std::size_t depth = 1; depth <= depth_limit; ++depth) {
     Update(usage_[ContextKey(event, depth, false)][event.text], false,
            event.timestamp);
@@ -56,7 +66,8 @@ double PersonalLanguageModel::Score(const std::string& candidate,
   add("global", 0.2);
   if (!context.input.empty())
     add("input" + std::string(1, kSeparator) + context.input, 0.8);
-  const auto depth_limit = std::min<std::size_t>(4, context.context.size());
+  const auto depth_limit =
+      std::min<std::size_t>(4, EffectiveContextSize(context));
   for (std::size_t depth = 1; depth <= depth_limit; ++depth) {
     const double weight = 0.7 + 0.35 * static_cast<double>(depth);
     add(ContextKey(context, depth, false), weight);
@@ -70,7 +81,8 @@ std::vector<std::string> PersonalLanguageModel::Predict(
     const LearningEvent& context,
     std::size_t limit) const {
   std::set<std::string> candidates;
-  const auto depth_limit = std::min<std::size_t>(4, context.context.size());
+  const auto depth_limit =
+      std::min<std::size_t>(4, EffectiveContextSize(context));
   for (std::size_t depth = 1; depth <= depth_limit; ++depth) {
     for (const bool app : {false, true}) {
       if (app && context.application.empty())
@@ -109,6 +121,17 @@ std::string PersonalLanguageModel::ContextKey(const LearningEvent& event,
   for (std::size_t i = begin; i < event.context.size(); ++i)
     key += std::string(1, kSeparator) + event.context[i];
   return key;
+}
+
+std::size_t PersonalLanguageModel::EffectiveContextSize(
+    const LearningEvent& event) {
+  std::size_t available = 0;
+  for (auto it = event.context.rbegin(); it != event.context.rend(); ++it) {
+    if (IsSentenceBoundary(*it))
+      break;
+    ++available;
+  }
+  return available;
 }
 
 void PersonalLanguageModel::Update(Usage& usage,
