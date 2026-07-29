@@ -1,0 +1,51 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 26,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-x64",
+      "displayName": "Windows x64",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/x64",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/x64"
+      }
+    },
+    {
+      "name": "windows-arm64",
+      "displayName": "Windows ARM64",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "ARM64",
+      "binaryDir": "${sourceDir}/build/arm64",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/arm64"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x64-release",
+      "configurePreset": "windows-x64",
+      "configuration": "Release"
+    },
+    {
+      "name": "arm64-release",
+      "configurePreset": "windows-arm64",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "x64-release",
+      "configurePreset": "windows-x64",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
+

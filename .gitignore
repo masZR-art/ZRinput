@@ -1,0 +1,12 @@
+/build/
+/out/
+/.vs/
+/artifacts/
+/test-results/
+/.cache/
+*.user
+*.pdb
+*.obj
+*.ilk
+*.log
+
