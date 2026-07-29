@@ -23,6 +23,8 @@ class CandidateWindow {
             std::size_t page_size);
   void Hide();
   void SetTheme(const Theme& theme);
+  void SetAnchor(const RECT& anchor);
+  void ClearAnchor();
 
  private:
   static LRESULT CALLBACK WindowProcedure(HWND window,
@@ -30,6 +32,8 @@ class CandidateWindow {
                                            WPARAM wparam,
                                            LPARAM lparam);
   bool EnsureWindow();
+  int CalculateWidth() const;
+  void UpdateWindowRegion();
   void Paint();
   void Position();
 
@@ -38,7 +42,10 @@ class CandidateWindow {
   std::size_t page_ = 0;
   std::size_t page_size_ = 5;
   bool preview_mode_ = false;
+  int window_width_ = 320;
   Theme theme_;
+  RECT anchor_{};
+  bool has_anchor_ = false;
 };
 
 }  // namespace zrinput::windows

@@ -8,7 +8,9 @@ extern HMODULE g_module;
 namespace {
 
 constexpr wchar_t kWindowClass[] = L"ZRinput.CandidateWindow";
-constexpr int kWindowWidth = 620;
+constexpr int kMinimumWindowWidth = 210;
+constexpr int kMaximumWindowWidth = 720;
+constexpr int kPagerWidth = 55;
 
 std::wstring Utf8ToWide(const std::string& text) {
   if (text.empty())
@@ -48,12 +50,11 @@ bool CandidateWindow::EnsureWindow() {
   window_ = CreateWindowExW(
       extended_style,
       kWindowClass, L"ZRinput Candidate", WS_POPUP, 0, 0,
-      kWindowWidth, theme_.window_height,
+      window_width_, theme_.window_height,
       nullptr, nullptr, g_module, this);
   if (!window_)
     return false;
-  SetWindowRgn(window_, CreateRoundRectRgn(0, 0, kWindowWidth + 1,
-                                           theme_.window_height + 1, 8, 8), TRUE);
+  UpdateWindowRegion();
   return true;
 }
 
@@ -67,6 +68,8 @@ void CandidateWindow::Show(const std::vector<Candidate>& candidates,
     Hide();
     return;
   }
+  window_width_ = CalculateWidth();
+  UpdateWindowRegion();
   Position();
   InvalidateRect(window_, nullptr, FALSE);
   ShowWindow(window_, preview_mode_ ? SW_SHOWNORMAL : SW_SHOWNOACTIVATE);
@@ -80,17 +83,60 @@ void CandidateWindow::Hide() {
 void CandidateWindow::SetTheme(const Theme& theme) {
   theme_ = theme;
   if (window_) {
-    SetWindowRgn(window_, CreateRoundRectRgn(0, 0, kWindowWidth + 1,
-                                             theme_.window_height + 1, 8, 8),
-                 TRUE);
+    window_width_ = CalculateWidth();
+    UpdateWindowRegion();
     InvalidateRect(window_, nullptr, FALSE);
   }
+}
+
+void CandidateWindow::SetAnchor(const RECT& anchor) {
+  anchor_ = anchor;
+  has_anchor_ = true;
+}
+
+void CandidateWindow::ClearAnchor() {
+  has_anchor_ = false;
+}
+
+int CandidateWindow::CalculateWidth() const {
+  HDC device = GetDC(window_);
+  if (!device)
+    return window_width_;
+  HFONT font = CreateFontW(-theme_.font_size, 0, 0, 0, FW_NORMAL, FALSE, FALSE,
+                           FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                           CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                           DEFAULT_PITCH, L"Microsoft YaHei UI");
+  HFONT old_font = static_cast<HFONT>(SelectObject(device, font));
+  int width = 9 + kPagerWidth;
+  const std::size_t begin = page_ * page_size_;
+  const std::size_t end = std::min(begin + page_size_, candidates_.size());
+  for (std::size_t index = begin; index < end; ++index) {
+    const std::wstring label = std::to_wstring(index - begin + 1) + L" " +
+                               Utf8ToWide(candidates_[index].text);
+    SIZE extent{};
+    GetTextExtentPoint32W(device, label.c_str(), static_cast<int>(label.size()),
+                          &extent);
+    width += extent.cx + 25;
+  }
+  SelectObject(device, old_font);
+  DeleteObject(font);
+  ReleaseDC(window_, device);
+  return std::clamp(width, kMinimumWindowWidth, kMaximumWindowWidth);
+}
+
+void CandidateWindow::UpdateWindowRegion() {
+  if (window_)
+    SetWindowRgn(window_, CreateRoundRectRgn(0, 0, window_width_ + 1,
+                                             theme_.window_height + 1, 8, 8),
+                 TRUE);
 }
 
 void CandidateWindow::Position() {
   POINT point{};
   GUITHREADINFO info{sizeof(info)};
-  if (GetGUIThreadInfo(0, &info) && info.hwndCaret) {
+  if (has_anchor_) {
+    point = {anchor_.left, anchor_.bottom};
+  } else if (GetGUIThreadInfo(0, &info) && info.hwndCaret) {
     point = {info.rcCaret.left, info.rcCaret.bottom};
     ClientToScreen(info.hwndCaret, &point);
   } else {
@@ -100,11 +146,11 @@ void CandidateWindow::Position() {
   MONITORINFO monitor_info{sizeof(monitor_info)};
   GetMonitorInfoW(monitor, &monitor_info);
   point.x = std::clamp(point.x, monitor_info.rcWork.left,
-                       monitor_info.rcWork.right - kWindowWidth);
+                       monitor_info.rcWork.right - window_width_);
   if (point.y + theme_.window_height > monitor_info.rcWork.bottom)
     point.y -= theme_.window_height + 24;
   SetWindowPos(window_, HWND_TOPMOST, point.x, point.y + 4,
-               kWindowWidth, theme_.window_height,
+               window_width_, theme_.window_height,
                SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
@@ -151,7 +197,8 @@ void CandidateWindow::Paint() {
   }
 
   SetTextColor(device, theme_.secondary_text);
-  RECT pager{kWindowWidth - 55, 4, kWindowWidth - 8, theme_.window_height - 4};
+  RECT pager{window_width_ - kPagerWidth, 4, window_width_ - 8,
+             theme_.window_height - 4};
   DrawTextW(device, L"‹  ›", -1, &pager,
             DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
   SelectObject(device, old_font);

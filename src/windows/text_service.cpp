@@ -57,16 +57,50 @@ std::filesystem::path ModuleDirectory() {
   return std::filesystem::path(path).parent_path();
 }
 
+HRESULT MoveSelectionToRangeEnd(ITfContext* context,
+                                TfEditCookie cookie,
+                                ITfRange* range,
+                                RECT* text_extent,
+                                bool* has_text_extent) {
+  ITfRange* caret = nullptr;
+  HRESULT result = range->Clone(&caret);
+  if (FAILED(result))
+    return result;
+  result = caret->Collapse(cookie, TF_ANCHOR_END);
+  if (SUCCEEDED(result)) {
+    TF_SELECTION selection{};
+    selection.range = caret;
+    selection.style.ase = TF_AE_NONE;
+    selection.style.fInterimChar = FALSE;
+    result = context->SetSelection(cookie, 1, &selection);
+  }
+  if (SUCCEEDED(result) && text_extent && has_text_extent) {
+    ITfContextView* view = nullptr;
+    if (SUCCEEDED(context->GetActiveView(&view))) {
+      BOOL clipped = FALSE;
+      if (SUCCEEDED(view->GetTextExt(cookie, caret, text_extent, &clipped)))
+        *has_text_extent = true;
+      view->Release();
+    }
+  }
+  caret->Release();
+  return result;
+}
+
 class CompositionEditSession final : public ITfEditSession {
  public:
   CompositionEditSession(ITfContext* context,
                          ITfComposition** composition,
                          ITfCompositionSink* composition_sink,
+                         RECT* text_extent,
+                         bool* has_text_extent,
                          std::wstring text,
                          bool end_composition)
       : context_(context),
         composition_(composition),
         composition_sink_(composition_sink),
+        text_extent_(text_extent),
+        has_text_extent_(has_text_extent),
         text_(std::move(text)),
         end_composition_(end_composition) {
     context_->AddRef();
@@ -97,6 +131,9 @@ class CompositionEditSession final : public ITfEditSession {
       if (SUCCEEDED(result)) {
         result = range->SetText(cookie, 0, text_.c_str(),
                                 static_cast<LONG>(text_.size()));
+        if (SUCCEEDED(result))
+          result = MoveSelectionToRangeEnd(context_, cookie, range,
+                                           text_extent_, has_text_extent_);
         range->Release();
       }
       if (SUCCEEDED(result) && end_composition_) {
@@ -134,6 +171,9 @@ class CompositionEditSession final : public ITfEditSession {
     if (SUCCEEDED(result))
       result = range->SetText(cookie, 0, text_.c_str(),
                               static_cast<LONG>(text_.size()));
+    if (SUCCEEDED(result))
+      result = MoveSelectionToRangeEnd(context_, cookie, range,
+                                       text_extent_, has_text_extent_);
     if (SUCCEEDED(result) && end_composition_) {
       result = (*composition_)->EndComposition(cookie);
       if (SUCCEEDED(result))
@@ -149,6 +189,8 @@ class CompositionEditSession final : public ITfEditSession {
   ITfContext* context_;
   ITfComposition** composition_;
   ITfCompositionSink* composition_sink_;
+  RECT* text_extent_;
+  bool* has_text_extent_;
   std::wstring text_;
   bool end_composition_;
 };
@@ -438,8 +480,11 @@ HRESULT TextService::UpdateComposition(ITfContext* context,
                                        bool end_composition) {
   if (!context)
     return E_INVALIDARG;
+  RECT text_extent{};
+  bool has_text_extent = false;
   auto* edit_session = new (std::nothrow) CompositionEditSession(
-      context, &composition_, this, text, end_composition);
+      context, &composition_, this, &text_extent, &has_text_extent, text,
+      end_composition);
   if (!edit_session)
     return E_OUTOFMEMORY;
   HRESULT session_result = E_FAIL;
@@ -450,6 +495,10 @@ HRESULT TextService::UpdateComposition(ITfContext* context,
   edit_session->Release();
   const HRESULT result = FAILED(request_result) ? request_result : session_result;
   if (SUCCEEDED(result)) {
+    if (has_text_extent)
+      candidate_window_.SetAnchor(text_extent);
+    else
+      candidate_window_.ClearAnchor();
     if (end_composition || !composition_) {
       SafeRelease(composition_context_);
     } else if (composition_context_ != context) {
@@ -471,6 +520,7 @@ void TextService::Reset() {
   candidates_.clear();
   page_ = 0;
   candidate_window_.Hide();
+  candidate_window_.ClearAnchor();
 }
 
 }  // namespace zrinput::windows

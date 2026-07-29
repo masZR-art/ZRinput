@@ -91,6 +91,7 @@ if(WIN32)
           RUNTIME DESTINATION .)
   install(FILES data/default_lexicon.tsv DESTINATION data)
   install(FILES themes/microsoft-dark.ini DESTINATION themes)
+  install(FILES README.md LICENSE DESTINATION .)
   install(PROGRAMS scripts/install.ps1 scripts/update.ps1 scripts/uninstall.ps1
           DESTINATION scripts)
 endif()
