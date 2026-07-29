@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'package_common.ps1')
 
 $layout = Get-ZRPackageLayout $PSScriptRoot $BuildDirectory
-$installDirectory = Join-Path $env:ProgramFiles 'ZRinput'
+$installDirectory = Get-ZRProgramInstallDirectory
 $destination = Get-ZRVersionedDllPath $layout.Dll $installDirectory
 $plan = [pscustomobject]@{
   Operation = 'Install'

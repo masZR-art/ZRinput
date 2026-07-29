@@ -10,6 +10,24 @@ function Get-ZRProfilePath {
   return "$(Get-ZRTipPath)\LanguageProfile\0x00000804\{97313B73-4F48-48E4-BC7E-10DF2538892C}"
 }
 
+function Get-ZRProgramInstallDirectory {
+  $programFiles = [Environment]::GetFolderPath(
+    [Environment+SpecialFolder]::ProgramFiles)
+  if (-not $programFiles) {
+    throw 'Windows did not provide the Program Files directory.'
+  }
+  return (Join-Path $programFiles 'ZRinput')
+}
+
+function Get-ZRLocalDataDirectory {
+  $localData = [Environment]::GetFolderPath(
+    [Environment+SpecialFolder]::LocalApplicationData)
+  if (-not $localData) {
+    throw 'Windows did not provide the local application-data directory.'
+  }
+  return (Join-Path $localData 'ZRinput')
+}
+
 function Test-ZRAdministrator {
   $principal = [Security.Principal.WindowsPrincipal]::new(
     [Security.Principal.WindowsIdentity]::GetCurrent())
@@ -18,19 +36,24 @@ function Test-ZRAdministrator {
 }
 
 function Get-ZRNativePowerShell {
+  $systemDirectory = [Environment]::SystemDirectory
   if ([Environment]::Is64BitOperatingSystem -and
       -not [Environment]::Is64BitProcess) {
-    return (Join-Path $env:SystemRoot 'Sysnative\WindowsPowerShell\v1.0\powershell.exe')
+    $windowsDirectory = Split-Path -Parent $systemDirectory
+    return (Join-Path $windowsDirectory `
+      'Sysnative\WindowsPowerShell\v1.0\powershell.exe')
   }
-  return (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
+  return (Join-Path $systemDirectory 'WindowsPowerShell\v1.0\powershell.exe')
 }
 
 function Get-ZRNativeRegsvr32 {
+  $systemDirectory = [Environment]::SystemDirectory
   if ([Environment]::Is64BitOperatingSystem -and
       -not [Environment]::Is64BitProcess) {
-    return (Join-Path $env:SystemRoot 'Sysnative\regsvr32.exe')
+    return (Join-Path (Split-Path -Parent $systemDirectory) `
+      'Sysnative\regsvr32.exe')
   }
-  return (Join-Path $env:SystemRoot 'System32\regsvr32.exe')
+  return (Join-Path $systemDirectory 'regsvr32.exe')
 }
 
 function Get-ZRPackageLayout {
@@ -233,33 +256,26 @@ function Remove-ZRObsoleteDlls {
   }
 }
 
-function Get-ZRUnregisterCandidate {
-  param(
-    [string]$RegisteredDll,
-    [Parameter(Mandatory = $true)][string]$ProgramInstallDirectory,
-    [Parameter(Mandatory = $true)][string]$UserAppDirectory,
-    [string]$PackagedDll
-  )
+function Get-ZRMachineUnregisterCandidate {
+  param([Parameter(Mandatory = $true)][string]$ProgramInstallDirectory)
 
-  $candidates = [Collections.Generic.List[string]]::new()
-  if ($RegisteredDll) {
-    $candidates.Add($RegisteredDll)
+  if (-not (Test-Path -LiteralPath $ProgramInstallDirectory -PathType Container)) {
+    return $null
   }
-  foreach ($directory in @($ProgramInstallDirectory, $UserAppDirectory)) {
-    if (Test-Path -LiteralPath $directory -PathType Container) {
-      foreach ($file in @(Get-ChildItem -LiteralPath $directory -Filter 'ZRinputTSF-*.dll' -File |
-          Sort-Object LastWriteTime -Descending)) {
-        $candidates.Add($file.FullName)
-      }
-    }
+  $trustedRoot = [IO.Path]::GetFullPath($ProgramInstallDirectory).TrimEnd(
+    [IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+  $candidates = @(
+    Get-ChildItem -LiteralPath $trustedRoot -File -ErrorAction SilentlyContinue |
+      Where-Object {
+        ($_.Name -eq 'ZRinputTSF.dll' -or $_.Name -match
+          '^ZRinputTSF-[0-9A-Fa-f]{12}\.dll$') -and
+        -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and
+        [string]::Equals($_.DirectoryName, $trustedRoot,
+          [StringComparison]::OrdinalIgnoreCase)
+      } |
+      Sort-Object LastWriteTime -Descending)
+  if ($candidates.Count -eq 0) {
+    return $null
   }
-  if ($PackagedDll) {
-    $candidates.Add($PackagedDll)
-  }
-  foreach ($candidate in $candidates) {
-    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-      return (Resolve-Path -LiteralPath $candidate).Path
-    }
-  }
-  return $null
+  return $candidates[0].FullName
 }

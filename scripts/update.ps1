@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'package_common.ps1')
 
 $layout = Get-ZRPackageLayout $PSScriptRoot $BuildDirectory
-$installDirectory = Join-Path $env:LOCALAPPDATA 'ZRinput\app'
+$installDirectory = Join-Path (Get-ZRLocalDataDirectory) 'app'
 $destination = Get-ZRVersionedDllPath $layout.Dll $installDirectory
 $plan = [pscustomobject]@{
   Operation = 'Update'

@@ -1,30 +1,23 @@
 [CmdletBinding()]
 param(
   [switch]$PlanOnly,
-  [switch]$MachinePhase,
-  [string]$RegisteredDll,
-  [string]$UserAppDirectory
+  [switch]$MachinePhase
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'package_common.ps1')
 
-$programInstallDirectory = Join-Path $env:ProgramFiles 'ZRinput'
-if (-not $UserAppDirectory) {
-  $UserAppDirectory = Join-Path $env:LOCALAPPDATA 'ZRinput\app'
-}
-if (-not $RegisteredDll) {
-  $RegisteredDll = Get-ZRCurrentUserComRegistration
-}
-$releaseRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-$packagedDll = Join-Path $releaseRoot 'ZRinputTSF.dll'
-$personalDataDirectory = Join-Path $env:LOCALAPPDATA 'ZRinput'
+$programInstallDirectory = Get-ZRProgramInstallDirectory
+$personalDataDirectory = Get-ZRLocalDataDirectory
+$userAppDirectory = Join-Path $personalDataDirectory 'app'
+$machineUnregisterCandidate = Get-ZRMachineUnregisterCandidate `
+  $programInstallDirectory
 
 $plan = [pscustomobject]@{
   Operation = 'Uninstall'
-  RegisteredDll = $RegisteredDll
+  MachineUnregisterCandidate = $machineUnregisterCandidate
   ProgramInstallDirectory = $programInstallDirectory
-  UserAppDirectory = $UserAppDirectory
+  UserAppDirectory = $userAppDirectory
   PersonalDataDirectory = $personalDataDirectory
   PreservesPersonalData = $true
   MachinePhaseRequiresElevation = $true
@@ -86,8 +79,7 @@ function Invoke-ZRMachineUninstall {
     throw 'The machine uninstall phase requires administrator privileges.'
   }
 
-  $candidate = Get-ZRUnregisterCandidate $RegisteredDll `
-    $programInstallDirectory $UserAppDirectory $packagedDll
+  $candidate = Get-ZRMachineUnregisterCandidate $programInstallDirectory
   $unregistered = $false
   if ($candidate) {
     $process = Start-Process (Get-ZRNativeRegsvr32) `
@@ -100,29 +92,21 @@ function Invoke-ZRMachineUninstall {
   if (-not $unregistered -or (Test-ZRMachineTipRegistration)) {
     Remove-ZRMachineTipRegistration
   }
-  Remove-ZRCurrentUserComRegistration
-
   $restartForProgramFiles = Remove-ZRDirectoryOrSchedule $programInstallDirectory
-  $restartForUserApp = Remove-ZRDirectoryOrSchedule $UserAppDirectory
-  return ($restartForProgramFiles -or $restartForUserApp)
+  return $restartForProgramFiles
 }
 
 $restartRequired = $false
 if (-not $MachinePhase -and -not (Test-ZRAdministrator)) {
   $arguments = @(
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
-    ('"{0}"' -f $PSCommandPath), '-MachinePhase',
-    '-UserAppDirectory', ('"{0}"' -f $UserAppDirectory))
-  if ($RegisteredDll) {
-    $arguments += @('-RegisteredDll', ('"{0}"' -f $RegisteredDll))
-  }
+    ('"{0}"' -f $PSCommandPath), '-MachinePhase')
   $process = Start-Process (Get-ZRNativePowerShell) -Verb RunAs `
     -ArgumentList $arguments -Wait -PassThru
   if ($process.ExitCode -ne 0) {
     throw "Elevated uninstall failed (exit $($process.ExitCode))."
   }
-  $restartRequired = (Test-Path -LiteralPath $programInstallDirectory) -or
-    (Test-Path -LiteralPath $UserAppDirectory)
+  $restartRequired = Test-Path -LiteralPath $programInstallDirectory
 } else {
   $restartRequired = Invoke-ZRMachineUninstall
 }
@@ -131,11 +115,12 @@ if (-not $MachinePhase) {
   # Remove the requesting user's registration even if another administrator
   # supplied the UAC credentials for the machine phase.
   Remove-ZRCurrentUserComRegistration
-  if (Test-Path -LiteralPath $UserAppDirectory) {
+  if (Test-Path -LiteralPath $userAppDirectory) {
     try {
-      Remove-Item -LiteralPath $UserAppDirectory -Recurse -Force -ErrorAction Stop
+      Remove-Item -LiteralPath $userAppDirectory -Recurse -Force `
+        -ErrorAction Stop
     } catch {
-      Write-Warning 'Some update files remain in use and will be removed by the elevated cleanup after restart.'
+      Write-Warning 'Some user update files remain in use. Close text applications or sign out, then run uninstall.ps1 again.'
     }
   }
   Write-Host 'ZRinput was unregistered. Personal memory and saved themes were preserved.'

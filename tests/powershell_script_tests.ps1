@@ -38,12 +38,24 @@ foreach ($name in $scripts) {
 $registrationBefore = Get-ZRCurrentUserComRegistration
 $tipBefore = Test-ZRMachineTipRegistration
 $profileBefore = Test-ZRMachineProfileRegistration
+$originalProgramFiles = $env:ProgramFiles
+$originalLocalAppData = $env:LOCALAPPDATA
+$originalSystemRoot = $env:SystemRoot
+$env:ProgramFiles = 'C:\ZRinput-Untrusted-ProgramFiles'
+$env:LOCALAPPDATA = 'C:\ZRinput-Untrusted-LocalAppData'
+$env:SystemRoot = 'C:\ZRinput-Untrusted-Windows'
 
-$installPlan = & (Join-Path $scriptDirectory 'install.ps1') `
-  -BuildDirectory $BuildDirectory -PlanOnly
-$updatePlan = & (Join-Path $scriptDirectory 'update.ps1') `
-  -BuildDirectory $BuildDirectory -PlanOnly
-$uninstallPlan = & (Join-Path $scriptDirectory 'uninstall.ps1') -PlanOnly
+try {
+  $installPlan = & (Join-Path $scriptDirectory 'install.ps1') `
+    -BuildDirectory $BuildDirectory -PlanOnly
+  $updatePlan = & (Join-Path $scriptDirectory 'update.ps1') `
+    -BuildDirectory $BuildDirectory -PlanOnly
+  $uninstallPlan = & (Join-Path $scriptDirectory 'uninstall.ps1') -PlanOnly
+} finally {
+  $env:ProgramFiles = $originalProgramFiles
+  $env:LOCALAPPDATA = $originalLocalAppData
+  $env:SystemRoot = $originalSystemRoot
+}
 
 Assert-ZREqual $installPlan.Operation 'Install' 'install plan operation is wrong'
 Assert-ZREqual $updatePlan.Operation 'Update' 'update plan operation is wrong'
@@ -74,6 +86,43 @@ Assert-ZRTrue $uninstallPlan.PreservesPersonalData `
 Assert-ZRTrue ($uninstallPlan.UserAppDirectory -ne
   $uninstallPlan.PersonalDataDirectory) `
   'uninstall plan would remove the complete personal-data directory'
+Assert-ZREqual $installPlan.ProgramInstallDirectory `
+  (Get-ZRProgramInstallDirectory) `
+  'install trusted an overridden ProgramFiles environment variable'
+Assert-ZREqual $updatePlan.UserAppDirectory `
+  (Join-Path (Get-ZRLocalDataDirectory) 'app') `
+  'update trusted an overridden LOCALAPPDATA environment variable'
+Assert-ZREqual $uninstallPlan.ProgramInstallDirectory `
+  (Get-ZRProgramInstallDirectory) `
+  'uninstall trusted an overridden ProgramFiles environment variable'
+Assert-ZREqual $uninstallPlan.UserAppDirectory `
+  (Join-Path (Get-ZRLocalDataDirectory) 'app') `
+  'uninstall trusted an overridden LOCALAPPDATA environment variable'
+Assert-ZRTrue ((Get-ZRNativePowerShell) -notlike
+    'C:\ZRinput-Untrusted-Windows*') `
+  'package scripts trusted an overridden SystemRoot for PowerShell'
+Assert-ZRTrue ((Get-ZRNativeRegsvr32) -notlike
+    'C:\ZRinput-Untrusted-Windows*') `
+  'package scripts trusted an overridden SystemRoot for regsvr32'
+
+$dangerousParameterRejected = $false
+try {
+  & (Join-Path $scriptDirectory 'uninstall.ps1') -PlanOnly `
+    -UserAppDirectory 'C:\Windows' | Out-Null
+} catch {
+  $dangerousParameterRejected = $true
+}
+Assert-ZRTrue $dangerousParameterRejected `
+  'uninstall still accepts a caller-controlled recursive-delete path'
+$dangerousDllRejected = $false
+try {
+  & (Join-Path $scriptDirectory 'uninstall.ps1') -PlanOnly `
+    -RegisteredDll 'C:\Users\Public\untrusted.dll' | Out-Null
+} catch {
+  $dangerousDllRejected = $true
+}
+Assert-ZRTrue $dangerousDllRejected `
+  'uninstall still accepts a caller-controlled elevated DLL path'
 
 $registrationAfter = Get-ZRCurrentUserComRegistration
 $tipAfter = Test-ZRMachineTipRegistration
@@ -93,19 +142,20 @@ try {
   New-Item -ItemType Directory -Path $fakeProgram, $fakeApp -Force | Out-Null
   $currentDll = Join-Path $fakeApp 'ZRinputTSF-CURRENT.dll'
   $oldDll = Join-Path $fakeApp 'ZRinputTSF-OLD.dll'
-  $registeredDll = Join-Path $fakeProgram 'ZRinputTSF-REGISTERED.dll'
   [IO.File]::WriteAllText($currentDll, 'current')
   [IO.File]::WriteAllText($oldDll, 'old')
-  [IO.File]::WriteAllText($registeredDll, 'registered')
+  $machineDll = Join-Path $fakeProgram 'ZRinputTSF-A1B2C3D4E5F6.dll'
+  [IO.File]::WriteAllText($machineDll, 'machine')
 
   $obsolete = @(Get-ZRObsoleteDlls $fakeApp $currentDll)
   Assert-ZREqual $obsolete.Count 1 'obsolete DLL selection is wrong'
   Assert-ZREqual $obsolete[0].FullName $oldDll `
     'obsolete DLL selection included the active version'
-  $candidate = Get-ZRUnregisterCandidate $registeredDll $fakeProgram `
-    $fakeApp $null
-  Assert-ZREqual $candidate $registeredDll `
-    'uninstall did not prioritize the currently registered DLL'
+  $candidate = Get-ZRMachineUnregisterCandidate $fakeProgram
+  Assert-ZREqual $candidate $machineDll `
+    'uninstall did not select the trusted machine DLL'
+  Assert-ZRTrue ($candidate -ne $currentDll -and $candidate -ne $oldDll) `
+    'uninstall selected a DLL from the user-writable update directory'
 
   $copySource = Join-Path $temporaryRoot 'copy-source.txt'
   $copyDestination = Join-Path $temporaryRoot 'copy-destination.txt'

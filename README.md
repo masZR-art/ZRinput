@@ -62,7 +62,8 @@ python tests\lexicon_audit.py
    `ZRinput`。
 4. 安装或更新后关闭并重新打开测试应用；仍显示旧版本时注销并重新登录。
 5. 更新使用当前用户目录，不再重复请求管理员权限。卸载会保留个人记忆与
-   已保存主题；正在使用的 DLL 会安排在 Windows 重启后删除。
+   已保存主题；`Program Files` 中正在使用的 DLL 会安排在 Windows 重启后
+   删除，用户更新目录被占用时需关闭文本应用或注销后重试卸载。
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
