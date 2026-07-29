@@ -6,7 +6,7 @@ Branch: `codex/zrinput-cleanroom`
 
 ## Current checkpoint
 
-Completed: repository and first portable-core bootstrap.
+Completed: tolerant pinyin analysis checkpoint.
 
 ## Completed
 
@@ -17,6 +17,12 @@ Completed: repository and first portable-core bootstrap.
   code-point-safe cursor movement, Home/End, forward/backward deletion,
   Ctrl+Backspace semantics, centralized limits, and monotonic versions.
 - Added a dependency-free test harness and six deterministic composition tests.
+- Added a bounded, multi-path pinyin parser that keeps raw UTF-16 input intact,
+  normalizes only its query view, accepts repeated separators, represents
+  abbreviations/incomplete syllables explicitly, applies bounded duplicate and
+  transposition corrections, and retains an unparsed tail.
+- Stable-prefix selection considers only complete syllable boundaries and
+  refuses unsafe separator-only splits.
 
 ## Verification
 
@@ -25,12 +31,15 @@ Verified on Windows 11 x64 with MSVC 19.40.33811 and SDK 10.0.22621.0:
 ```text
 cmake --preset windows-x64                  PASS
 cmake --build --preset x64-release          PASS (strict warnings as errors)
-ctest --preset x64-release                  PASS (1 executable, 6 cases)
+ctest --preset x64-release                  PASS (1 executable, 14 cases)
 ```
 
 The cases include a 1024 UTF-16-unit internal buffer, non-mutating soft-limit
 notification, hard-limit recovery through Backspace, arbitrary selection
 replacement, word deletion, and surrogate-pair-safe movement/deletion.
+Parser cases cover ambiguous segmentation, mixed case/umlaut normalization,
+repeated separators, invalid tails, abbreviations, corrections, stable splits,
+and 256 separator characters.
 
 `cmake --preset windows-arm64` was attempted and failed during compiler
 detection because this machine does not have the Visual Studio ARM64 C++ tools
@@ -39,8 +48,8 @@ or libraries installed. The preset remains ready for a machine with
 
 ## Next resume point
 
-Implement and test the tolerant pinyin parser, dictionary/decoder contracts,
-ranking formula, and version-bound candidate request model.
+Implement and test dictionary/decoder contracts, the explicit ranking formula,
+and the version-bound candidate request model.
 
 ## Known risks
 
