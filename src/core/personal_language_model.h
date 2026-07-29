@@ -26,7 +26,7 @@ class PersonalLanguageModel {
                const LearningEvent& context) const;
   std::vector<std::string> Predict(const LearningEvent& context,
                                    std::size_t limit) const;
-  bool Save(const std::filesystem::path& path) const;
+  bool Save(const std::filesystem::path& path);
   bool Load(const std::filesystem::path& path);
   void Clear();
   std::size_t size() const;
@@ -46,12 +46,27 @@ class PersonalLanguageModel {
   static void Update(Usage& usage,
                      bool accepted,
                      std::int64_t timestamp);
+  void Record(const std::string& key,
+              const std::string& candidate,
+              bool accepted,
+              std::int64_t timestamp);
+  static bool ReadSnapshot(const std::filesystem::path& path,
+                           std::unordered_map<std::string,
+                                              CandidateUsage>& usage);
+  static bool WriteSnapshot(
+      const std::filesystem::path& path,
+      const std::unordered_map<std::string, CandidateUsage>& usage);
+  static void MergeUsage(
+      std::unordered_map<std::string, CandidateUsage>& target,
+      const std::unordered_map<std::string, CandidateUsage>& delta);
   static double UsageScore(const Usage& usage, std::int64_t now);
   double ScoreUnlocked(const std::string& candidate,
                        const LearningEvent& context) const;
 
   mutable std::shared_mutex mutex_;
   std::unordered_map<std::string, CandidateUsage> usage_;
+  std::unordered_map<std::string, CandidateUsage> pending_;
+  bool clear_pending_ = false;
 };
 
 }  // namespace zrinput

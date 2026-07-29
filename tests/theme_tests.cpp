@@ -19,6 +19,19 @@ int main() {
     std::cerr << "theme save failed\n";
     return 1;
   }
+  WritePrivateProfileStringW(L"metrics", L"font_size", L"999", path.c_str());
+  WritePrivateProfileStringW(L"metrics", L"window_height", L"-1",
+                             path.c_str());
+  zrinput::windows::Theme bounded;
+  if (!bounded.Load(path) || bounded.font_size != 30 ||
+      bounded.window_height != 32) {
+    std::cerr << "theme metrics were not bounded\n";
+    return 1;
+  }
+  if (!expected.Save(path)) {
+    std::cerr << "theme restore failed\n";
+    return 1;
+  }
   zrinput::windows::Theme actual;
   if (!actual.Load(path) || actual.background != expected.background ||
       actual.selected != expected.selected || actual.accent != expected.accent ||

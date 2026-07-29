@@ -1,5 +1,6 @@
 #include "windows/theme.h"
 
+#include <algorithm>
 #include <array>
 #include <string>
 
@@ -42,6 +43,8 @@ bool Theme::Load(const std::filesystem::path& path) {
                                     path.c_str());
   window_height = GetPrivateProfileIntW(
       L"metrics", L"window_height", window_height, path.c_str());
+  font_size = std::clamp(font_size, 12, 30);
+  window_height = std::clamp(window_height, 32, 72);
   return true;
 }
 

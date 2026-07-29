@@ -12,6 +12,8 @@ HMODULE g_module = nullptr;
 
 class ClassFactory final : public IClassFactory {
  public:
+  ClassFactory() { ++g_object_count; }
+
   STDMETHODIMP QueryInterface(REFIID interface_id, void** object) override {
     if (!object)
       return E_INVALIDARG;
@@ -48,6 +50,7 @@ class ClassFactory final : public IClassFactory {
   }
 
  private:
+  ~ClassFactory() { --g_object_count; }
   std::atomic<ULONG> reference_count_{1};
 };
 

@@ -1,44 +1,60 @@
 [CmdletBinding()]
 param(
-  [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\build')
+  [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\build'),
+  [switch]$PlanOnly
 )
 
 $ErrorActionPreference = 'Stop'
-$releaseRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$packagedDll = Join-Path $releaseRoot 'ZRinputTSF.dll'
-if (Test-Path $packagedDll) {
-  $source = $packagedDll
-  $editorSource = Join-Path $releaseRoot 'zrinput_theme_editor.exe'
-  $profileToolSource = Join-Path $releaseRoot 'zrinput_profile_tool.exe'
-} else {
-  $source = (Resolve-Path (Join-Path $BuildDirectory 'Release\ZRinputTSF.dll')).Path
-  $editorSource = (Resolve-Path (Join-Path $BuildDirectory 'Release\zrinput_theme_editor.exe')).Path
-  $profileToolSource = (Resolve-Path (Join-Path $BuildDirectory 'Release\zrinput_profile_tool.exe')).Path
-}
+. (Join-Path $PSScriptRoot 'package_common.ps1')
+
+$layout = Get-ZRPackageLayout $PSScriptRoot $BuildDirectory
 $installDirectory = Join-Path $env:LOCALAPPDATA 'ZRinput\app'
+$destination = Get-ZRVersionedDllPath $layout.Dll $installDirectory
+$plan = [pscustomobject]@{
+  Operation = 'Update'
+  SourceDll = $layout.Dll
+  DestinationDll = $destination
+  LexiconSource = $layout.Lexicon
+  ThemeSource = $layout.Theme
+  UserAppDirectory = $installDirectory
+  RequiresExistingMachineTip = $true
+  RequiresExistingMachineProfile = $true
+  RequiresExistingUserComRegistration = $true
+  CurrentUserRegistryView = 'Registry64'
+}
+if ($PlanOnly) {
+  return $plan
+}
+
+$registered = Get-ZRCurrentUserComRegistration
+if (-not (Test-ZRMachineTipRegistration) -or
+    -not (Test-ZRMachineProfileRegistration) -or -not $registered) {
+  throw 'ZRinput is not installed for this user. Run install.ps1 before update.ps1.'
+}
+
 New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
-$hash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.Substring(0, 12)
-$destination = Join-Path $installDirectory "ZRinputTSF-$hash.dll"
-$comKey = 'HKCU:\Software\Classes\CLSID\{BFD6C220-320C-46F4-94D0-78C4779AE70C}\InprocServer32'
-Copy-Item -LiteralPath $source -Destination $destination -Force
-Copy-Item -LiteralPath $editorSource `
-  -Destination (Join-Path $installDirectory 'ZRinputThemeEditor.exe') -Force
-Copy-Item -LiteralPath $profileToolSource `
-  -Destination (Join-Path $installDirectory 'ZRinputProfileTool.exe') -Force
+Copy-ZRFileIfDifferent $layout.Dll $destination | Out-Null
+Copy-ZRFileIfDifferent $layout.ThemeEditor `
+  (Join-Path $installDirectory 'ZRinputThemeEditor.exe') | Out-Null
+Copy-ZRFileIfDifferent $layout.ProfileTool `
+  (Join-Path $installDirectory 'ZRinputProfileTool.exe') | Out-Null
 $dataDirectory = Join-Path $installDirectory 'data'
 $themeDirectory = Join-Path $installDirectory 'themes'
 New-Item -ItemType Directory -Path $dataDirectory -Force | Out-Null
 New-Item -ItemType Directory -Path $themeDirectory -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $releaseRoot 'data\default_lexicon.tsv') `
-  -Destination (Join-Path $dataDirectory 'default_lexicon.tsv') -Force
-Copy-Item -LiteralPath (Join-Path $releaseRoot 'themes\microsoft-dark.ini') `
-  -Destination (Join-Path $themeDirectory 'microsoft-dark.ini') -Force
-New-Item -Path $comKey -Force | Out-Null
-Set-Item -LiteralPath $comKey -Value $destination
-New-ItemProperty -LiteralPath $comKey -Name ThreadingModel -Value Apartment `
-  -PropertyType String -Force | Out-Null
-$actual = (Get-ItemProperty $comKey).'(default)'
-if ($actual -ne $destination) {
+Copy-ZRFileIfDifferent $layout.Lexicon `
+  (Join-Path $dataDirectory 'default_lexicon.tsv') | Out-Null
+Copy-ZRFileIfDifferent $layout.Theme `
+  (Join-Path $themeDirectory 'microsoft-dark.ini') | Out-Null
+
+# Switch only after the complete version has been staged.
+Set-ZRCurrentUserComRegistration $destination
+$actual = Get-ZRCurrentUserComRegistration
+if (-not [string]::Equals($actual, $destination,
+    [StringComparison]::OrdinalIgnoreCase)) {
   throw "COM registration points to an unexpected DLL: $actual"
 }
+Remove-ZRObsoleteDlls $installDirectory $destination
 Write-Host "ZRinput updated to $destination"
+Write-Host 'Already-running applications still have the old DLL loaded.'
+Write-Host 'Close and reopen them, or sign out and back in, before checking the update.'

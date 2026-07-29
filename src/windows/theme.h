@@ -6,13 +6,13 @@
 namespace zrinput::windows {
 
 struct Theme {
-  COLORREF background = RGB(32, 32, 32);
-  COLORREF selected = RGB(62, 62, 62);
-  COLORREF accent = RGB(0, 120, 212);
-  COLORREF text = RGB(245, 245, 245);
+  COLORREF background = RGB(44, 44, 44);
+  COLORREF selected = RGB(56, 56, 56);
+  COLORREF accent = RGB(179, 193, 224);
+  COLORREF text = RGB(255, 255, 255);
   COLORREF secondary_text = RGB(190, 190, 190);
-  int font_size = 19;
-  int window_height = 44;
+  int font_size = 17;
+  int window_height = 41;
 
   bool Load(const std::filesystem::path& path);
   bool Save(const std::filesystem::path& path) const;

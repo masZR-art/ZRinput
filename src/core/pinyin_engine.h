@@ -33,6 +33,7 @@ class PinyinEngine {
   void ClearDictionary();
   std::vector<Candidate> Query(const LearningEvent& request,
                                std::size_t limit) const;
+  bool HasCompleteStandardSyllableCoverage() const;
   PersonalLanguageModel& memory() { return memory_; }
 
  private:
@@ -41,5 +42,9 @@ class PinyinEngine {
   PinyinParser parser_;
   PersonalLanguageModel memory_;
 };
+
+bool IsRuntimeDictionaryUsable(const PinyinEngine& engine,
+                               const DictionaryLoadResult& load_result,
+                               std::size_t minimum_entries = 60'000);
 
 }  // namespace zrinput

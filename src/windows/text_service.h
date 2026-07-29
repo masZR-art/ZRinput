@@ -1,10 +1,12 @@
 #pragma once
 
+#include "core/composition_state.h"
 #include "core/pinyin_engine.h"
 #include "windows/candidate_window.h"
 
 #include <msctf.h>
 #include <atomic>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -55,14 +57,17 @@ class TextService final : public ITfTextInputProcessor,
  private:
   ~TextService();
 
-  bool ShouldHandle(WPARAM key) const;
+  bool ShouldHandle(ITfContext* context, WPARAM key) const;
   bool HandleKey(ITfContext* context, WPARAM key);
   void RefreshCandidates();
   void ChangePage(int delta);
+  bool LearnSelection(const std::string& selected,
+                      const std::string& input,
+                      std::size_t candidate_index);
   HRESULT UpdateComposition(ITfContext* context,
                             const std::wstring& text,
                             bool end_composition);
-  void CancelComposition();
+  HRESULT CancelComposition();
   HRESULT Commit(ITfContext* context, const std::string& utf8_text);
   void Reset();
 
@@ -71,14 +76,16 @@ class TextService final : public ITfTextInputProcessor,
   ITfContext* composition_context_ = nullptr;
   ITfComposition* composition_ = nullptr;
   bool ending_composition_ = false;
+  std::uint64_t edit_generation_ = 0;
   TfClientId client_id_ = TF_CLIENTID_NULL;
   PinyinEngine engine_;
   std::filesystem::path memory_path_;
-  std::string input_;
+  std::string application_;
+  bool dictionary_ready_ = false;
+  CompositionState state_;
   std::vector<Candidate> candidates_;
   CandidateWindow candidate_window_;
-  std::size_t page_ = 0;
-  static constexpr std::size_t kPageSize = 5;
+  static constexpr std::size_t kPageSize = 7;
   std::vector<std::string> committed_context_;
 };
 

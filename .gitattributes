@@ -1,0 +1,8 @@
+# Keep generated lexical data byte-for-byte reproducible on Windows checkouts.
+data/default_lexicon.tsv text eol=lf
+data/lexicon_overrides.tsv text eol=lf
+data/standard_pinyin_syllables.txt text eol=lf
+scripts/generate_lexicon.py text eol=lf
+scripts/requirements-lexicon.txt text eol=lf
+tests/lexicon_audit.py text eol=lf
+THIRD_PARTY_NOTICES.md text eol=lf

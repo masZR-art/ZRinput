@@ -4,6 +4,7 @@
 #include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 #include <set>
 #include <sstream>
 
@@ -79,24 +80,73 @@ std::vector<std::string> Split(const std::string& line) {
     start = tab + 1;
   }
 }
+
+#ifdef _WIN32
+class InterprocessSaveLock {
+ public:
+  explicit InterprocessSaveLock(const std::filesystem::path& path) {
+    std::error_code error;
+    auto normalized = std::filesystem::absolute(path, error);
+    if (error)
+      normalized = path;
+    normalized = normalized.lexically_normal();
+
+    std::uint64_t hash = 14695981039346656037ull;
+    for (const wchar_t ch : normalized.native()) {
+      hash ^= static_cast<std::uint16_t>(ch);
+      hash *= 1099511628211ull;
+    }
+    std::wostringstream name;
+    name << L"Local\\ZRinput.PersonalModel." << std::hex << hash;
+    mutex_ = CreateMutexW(nullptr, FALSE, name.str().c_str());
+    if (!mutex_)
+      return;
+    const DWORD wait = WaitForSingleObject(mutex_, INFINITE);
+    locked_ = wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED;
+  }
+
+  ~InterprocessSaveLock() {
+    if (locked_)
+      ReleaseMutex(mutex_);
+    if (mutex_)
+      CloseHandle(mutex_);
+  }
+
+  bool locked() const { return locked_; }
+
+ private:
+  HANDLE mutex_ = nullptr;
+  bool locked_ = false;
+};
+#else
+std::mutex g_save_mutex;
+
+class InterprocessSaveLock {
+ public:
+  explicit InterprocessSaveLock(const std::filesystem::path&)
+      : lock_(g_save_mutex) {}
+  bool locked() const { return true; }
+
+ private:
+  std::unique_lock<std::mutex> lock_;
+};
+#endif
 }
 
 void PersonalLanguageModel::Accept(const LearningEvent& event) {
   if (event.private_mode || event.text.empty())
     return;
   std::unique_lock lock(mutex_);
-  Update(usage_["global"][event.text], true, event.timestamp);
+  Record("global", event.text, true, event.timestamp);
   if (!event.input.empty())
-    Update(usage_["input" + std::string(1, kSeparator) + event.input]
-                 [event.text],
+    Record("input" + std::string(1, kSeparator) + event.input, event.text,
            true, event.timestamp);
   const auto depth_limit =
       std::min<std::size_t>(4, EffectiveContextSize(event));
   for (std::size_t depth = 1; depth <= depth_limit; ++depth) {
-    Update(usage_[ContextKey(event, depth, false)][event.text], true,
-           event.timestamp);
+    Record(ContextKey(event, depth, false), event.text, true, event.timestamp);
     if (!event.application.empty())
-      Update(usage_[ContextKey(event, depth, true)][event.text], true,
+      Record(ContextKey(event, depth, true), event.text, true,
              event.timestamp);
   }
 }
@@ -105,14 +155,14 @@ void PersonalLanguageModel::Reject(const LearningEvent& event) {
   if (event.private_mode || event.text.empty())
     return;
   std::unique_lock lock(mutex_);
-  Update(usage_["global"][event.text], false, event.timestamp);
+  Record("global", event.text, false, event.timestamp);
   const auto depth_limit =
       std::min<std::size_t>(4, EffectiveContextSize(event));
   for (std::size_t depth = 1; depth <= depth_limit; ++depth) {
-    Update(usage_[ContextKey(event, depth, false)][event.text], false,
+    Record(ContextKey(event, depth, false), event.text, false,
            event.timestamp);
     if (!event.application.empty())
-      Update(usage_[ContextKey(event, depth, true)][event.text], false,
+      Record(ContextKey(event, depth, true), event.text, false,
              event.timestamp);
   }
 }
@@ -176,22 +226,48 @@ std::vector<std::string> PersonalLanguageModel::Predict(
   return result;
 }
 
-bool PersonalLanguageModel::Save(const std::filesystem::path& path) const {
-  std::shared_lock lock(mutex_);
+bool PersonalLanguageModel::Save(const std::filesystem::path& path) {
+  std::unique_lock lock(mutex_);
+  InterprocessSaveLock save_lock(path);
+  if (!save_lock.locked())
+    return false;
+
+  std::unordered_map<std::string, CandidateUsage> merged;
+  const bool loaded_disk = !clear_pending_ && ReadSnapshot(path, merged);
+  if (clear_pending_) {
+    merged.clear();
+    MergeUsage(merged, pending_);
+  } else if (loaded_disk) {
+    MergeUsage(merged, pending_);
+  } else {
+    merged = usage_;
+  }
+  if (!WriteSnapshot(path, merged))
+    return false;
+
+  usage_ = std::move(merged);
+  pending_.clear();
+  clear_pending_ = false;
+  return true;
+}
+
+bool PersonalLanguageModel::WriteSnapshot(
+    const std::filesystem::path& path,
+    const std::unordered_map<std::string, CandidateUsage>& usage) {
   std::vector<std::string> keys;
-  keys.reserve(usage_.size());
-  for (const auto& [key, unused] : usage_)
+  keys.reserve(usage.size());
+  for (const auto& [key, unused] : usage)
     keys.push_back(key);
   std::sort(keys.begin(), keys.end());
 
   std::ostringstream payload;
   for (const auto& key : keys) {
     std::vector<std::string> candidates;
-    for (const auto& [candidate, unused] : usage_.at(key))
+    for (const auto& [candidate, unused] : usage.at(key))
       candidates.push_back(candidate);
     std::sort(candidates.begin(), candidates.end());
     for (const auto& candidate : candidates) {
-      const auto& item = usage_.at(key).at(candidate);
+      const auto& item = usage.at(key).at(candidate);
       payload << Escape(key) << '\t' << Escape(candidate) << '\t'
               << std::setprecision(17) << item.accepted << '\t'
               << item.rejected << '\t' << item.last_used << '\n';
@@ -226,7 +302,9 @@ bool PersonalLanguageModel::Save(const std::filesystem::path& path) const {
 #endif
 }
 
-bool PersonalLanguageModel::Load(const std::filesystem::path& path) {
+bool PersonalLanguageModel::ReadSnapshot(
+    const std::filesystem::path& path,
+    std::unordered_map<std::string, CandidateUsage>& usage) {
   std::ifstream input(path, std::ios::binary);
   if (!input)
     return false;
@@ -271,14 +349,26 @@ bool PersonalLanguageModel::Load(const std::filesystem::path& path) {
       return false;
     }
   }
+  usage.swap(loaded);
+  return true;
+}
+
+bool PersonalLanguageModel::Load(const std::filesystem::path& path) {
+  std::unordered_map<std::string, CandidateUsage> loaded;
+  if (!ReadSnapshot(path, loaded))
+    return false;
   std::unique_lock lock(mutex_);
   usage_.swap(loaded);
+  pending_.clear();
+  clear_pending_ = false;
   return true;
 }
 
 void PersonalLanguageModel::Clear() {
   std::unique_lock lock(mutex_);
   usage_.clear();
+  pending_.clear();
+  clear_pending_ = true;
 }
 
 std::size_t PersonalLanguageModel::size() const {
@@ -318,6 +408,27 @@ void PersonalLanguageModel::Update(Usage& usage,
                                    std::int64_t timestamp) {
   accepted ? usage.accepted += 1 : usage.rejected += 1;
   usage.last_used = std::max(usage.last_used, timestamp);
+}
+
+void PersonalLanguageModel::Record(const std::string& key,
+                                   const std::string& candidate,
+                                   bool accepted,
+                                   std::int64_t timestamp) {
+  Update(usage_[key][candidate], accepted, timestamp);
+  Update(pending_[key][candidate], accepted, timestamp);
+}
+
+void PersonalLanguageModel::MergeUsage(
+    std::unordered_map<std::string, CandidateUsage>& target,
+    const std::unordered_map<std::string, CandidateUsage>& delta) {
+  for (const auto& [key, candidates] : delta) {
+    for (const auto& [candidate, increment] : candidates) {
+      auto& item = target[key][candidate];
+      item.accepted += increment.accepted;
+      item.rejected += increment.rejected;
+      item.last_used = std::max(item.last_used, increment.last_used);
+    }
+  }
 }
 
 double PersonalLanguageModel::UsageScore(const Usage& usage,
