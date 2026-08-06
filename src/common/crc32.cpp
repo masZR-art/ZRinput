@@ -7,13 +7,14 @@ namespace {
 
 constexpr std::array<std::uint32_t, 256> MakeTable() {
   std::array<std::uint32_t, 256> table{};
-  for (std::uint32_t value = 0; value < table.size(); ++value) {
-    std::uint32_t remainder = value;
+  std::uint32_t value = 0;
+  for (std::uint32_t& entry : table) {
+    std::uint32_t remainder = value++;
     for (int bit = 0; bit < 8; ++bit) {
       remainder = (remainder >> 1u) ^
                   (0xEDB88320u & (0u - (remainder & 1u)));
     }
-    table[value] = remainder;
+    entry = remainder;
   }
   return table;
 }
@@ -37,4 +38,3 @@ std::uint32_t Crc32(std::string_view bytes) noexcept {
 }
 
 }  // namespace zrinput
-

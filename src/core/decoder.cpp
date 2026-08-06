@@ -223,6 +223,9 @@ DecodeResult Decoder::Decode(
         const PersonalizationFeatures personal = personalization->FeaturesFor(
             compact, candidate.text, request.application, request.context,
             request.now_seconds);
+        if (personal.suppressed) {
+          continue;
+        }
         candidate.features.user_frequency = personal.user_frequency;
         candidate.features.recency = personal.recency;
         candidate.features.context = personal.context;
@@ -272,6 +275,9 @@ DecodeResult Decoder::Decode(
         const PersonalizationFeatures personal = personalization->FeaturesFor(
             CompactPath(path), candidate.text, request.application,
             request.context, request.now_seconds);
+        if (personal.suppressed) {
+          continue;
+        }
         candidate.features.user_frequency = personal.user_frequency;
         candidate.features.recency = personal.recency;
         candidate.features.context = personal.context;

@@ -4,6 +4,7 @@ add_executable(zrinput_core_tests
   dictionary_decoder_tests.cpp
   pinyin_parser_tests.cpp
   prediction_service_tests.cpp
+  user_memory_tests.cpp
 )
 
 target_link_libraries(zrinput_core_tests PRIVATE zrinput_core)

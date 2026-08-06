@@ -1,5 +1,9 @@
 # Test-release scope
 
+This document defines the intended scope of the first installable test
+release. It is not the current implementation checklist; see
+[STATUS.md](STATUS.md) for verified progress.
+
 ## Included in the first installable checkpoint
 
 - x64 and ARM64 C++20 builds from one source tree.
@@ -20,10 +24,10 @@
 
 ## Deliberately deferred
 
-- Speech recognition and cloud prediction implementations. Their ports exist,
-  but network use remains disabled and no input leaves the computer.
-- Production encrypted multi-device sync. The adapter and encrypted backup
-  envelope are present; server/account integration is not.
+- Speech recognition and cloud prediction implementations. Their ports are
+  planned but not implemented; the current input path remains fully local.
+- Production encrypted multi-device sync. The sync adapter and encrypted
+  backup envelope are planned interfaces, not current implementations.
 - Handwriting/stroke decoder and a production double-pinyin scheme editor.
 - Microsoft-owned icons, sounds, private measurements, dictionaries, or code.
 - 32-bit host-process support in the first package. Windows 11 x64 requires a
@@ -31,4 +35,3 @@
   ARM64 correctness.
 - A claim of pixel identity with Microsoft Pinyin. Visual regression is against
   clean-room reference captures and reports numeric thresholds.
-

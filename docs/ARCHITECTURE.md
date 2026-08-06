@@ -1,5 +1,10 @@
 # Architecture decisions
 
+This document describes the target architecture for the first installable
+release. It is not a statement that every component shown below is already
+implemented. [STATUS.md](STATUS.md) is authoritative for the current,
+verified implementation state.
+
 ## Boundaries
 
 ZRinput uses a ports-and-adapters layout. The portable C++20 core has no Win32
@@ -70,11 +75,19 @@ candidate selection continue to work.
 
 ## ADR-005: local memory with journaled writes
 
-Personal learning is local by default. Key handling updates an in-memory model
-and enqueues a bounded write record. A background writer appends checksummed
-records and periodically replaces a checksummed snapshot atomically. Startup
-replays only valid complete records and retains the last known-good snapshot.
-No file, database, or network operation runs under a TSF edit lock.
+Personal learning is local by default. The key path only attempts to enqueue a
+bounded event; `RecordAccepted`, `RecordRejected`, and `RecordDeleted` perform
+no disk I/O. A background worker appends checksummed journal records in batches
+and publishes atomic read views for the decoder. It creates a checksummed
+snapshot on successful `Flush()`, during orderly shutdown, and when the journal
+budget requires compaction. There is no periodic snapshot timer.
+
+Startup replays only valid, complete, monotonically sequenced records and can
+fall back to the previous known-good snapshot. The constructor performs
+recovery I/O and `Flush()` waits for durable storage, so neither may run under
+a TSF edit lock. Persistent storage currently supports one Windows writer. The
+future shared decoder service must own that sole `UserMemory` instance; TSF
+host processes must not each open the same persistent store.
 
 ## ADR-006: data-only themes
 

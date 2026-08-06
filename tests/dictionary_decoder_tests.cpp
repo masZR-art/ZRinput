@@ -93,6 +93,20 @@ class PreferLongCandidate final : public PersonalizationView {
   }
 };
 
+class SuppressLongCandidate final : public PersonalizationView {
+ public:
+  PersonalizationFeatures FeaturesFor(
+      std::string_view,
+      std::string_view candidate,
+      std::string_view,
+      std::span<const std::string>,
+      std::int64_t) const override {
+    PersonalizationFeatures features;
+    features.suppressed = candidate == Utf8China();
+    return features;
+  }
+};
+
 ZR_TEST(Crc32MatchesPublishedCheckValue) {
   ZR_EXPECT_EQ(zrinput::Crc32("123456789"), std::uint32_t{0xCBF43926u});
 }
@@ -243,6 +257,21 @@ ZR_TEST(PersonalizationCanOverrideStaticFrequencyWithoutHiddenWeights) {
   ZR_EXPECT_TRUE(!result.candidates.empty());
   ZR_EXPECT_EQ(result.candidates.front().text, Utf8MiddleKingdom());
   ZR_EXPECT_TRUE(result.candidates.front().features.user_frequency > 0.0);
+}
+
+ZR_TEST(PersonalizationCanHardSuppressADeletedCandidate) {
+  const auto dictionary =
+      std::make_shared<zrinput::core::DictionarySnapshot>(TestEntries());
+  auto parser = TestParser();
+  DecodeRequest request;
+  request.analysis = parser.Analyze(u"zhongguo");
+  request.now_seconds = 1000;
+  SuppressLongCandidate personalization;
+  const auto result = Decoder().Decode(request, dictionary, &personalization);
+  ZR_EXPECT_TRUE(!result.candidates.empty());
+  for (const auto& candidate : result.candidates) {
+    ZR_EXPECT_TRUE(candidate.text != Utf8China());
+  }
 }
 
 ZR_TEST(DecoderBuildsContinuousSentenceFromIndependentWords) {

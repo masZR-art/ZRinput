@@ -6,6 +6,7 @@ add_library(zrinput_core STATIC
   pinyin_parser.cpp
   prediction_service.cpp
   ranking.cpp
+  user_memory.cpp
 )
 
 target_include_directories(zrinput_core PUBLIC "${PROJECT_SOURCE_DIR}/src")

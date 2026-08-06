@@ -6,7 +6,7 @@ Branch: `codex/zrinput-cleanroom`
 
 ## Current checkpoint
 
-Completed: versioned theme engine and manifest hot-loading checkpoint.
+Completed: asynchronous, local User Memory checkpoint.
 
 ## Completed
 
@@ -16,7 +16,8 @@ Completed: versioned theme engine and manifest hot-loading checkpoint.
 - Implemented a dynamic UTF-16 composition buffer with selection replacement,
   code-point-safe cursor movement, Home/End, forward/backward deletion,
   Ctrl+Backspace semantics, centralized limits, and monotonic versions.
-- Added a dependency-free test harness and six deterministic composition tests.
+- Added a dependency-free test harness and eight deterministic composition
+  tests.
 - Added a bounded, multi-path pinyin parser that keeps raw UTF-16 input intact,
   normalizes only its query view, accepts repeated separators, represents
   abbreviations/incomplete syllables explicitly, applies bounded duplicate and
@@ -61,6 +62,22 @@ Completed: versioned theme engine and manifest hot-loading checkpoint.
   periodic rescans, last-valid rollback, queryable errors, interruptible
   shutdown, and concurrent idempotent stopping. External bitmap references are
   rejected until the bounded package loader validates and decodes every asset.
+- Added accepted, rejected, and deleted feedback with half-life decay,
+  context/application affinity, and decoder-facing `PersonalizationView`
+  integration.
+- Added hard suppression after deletion. A later accepted event rehabilitates
+  the candidate, including when it follows deletion in the same wall-clock
+  second.
+- Added learning, privacy, caller-supplied sensitive-context, and per-application
+  policy gates for recording and personalization reads.
+- Added a bounded try-lock queue, background batching, and atomic publication of
+  immutable read views. The key path performs no persistence I/O.
+- Added v1 CRC32-framed snapshots and journals, monotonic record sequences,
+  `FlushFileBuffers` durability, atomic replacement, and a Windows
+  single-writer lock.
+- Added recovery from the previous valid snapshot and truncation of corrupt or
+  incomplete journal tails. Runtime and load-time entry, feature, string,
+  journal-record, field, and storage budgets are enforced.
 
 ## Verification
 
@@ -69,8 +86,15 @@ Verified on Windows 11 x64 with MSVC 19.40.33811 and SDK 10.0.22621.0:
 ```text
 cmake --preset windows-x64                  PASS
 cmake --build --preset x64-release          PASS (strict warnings as errors)
-ctest --preset x64-release                  PASS (5 executables, 65 cases)
+ctest --preset x64-release                  PASS (5 executables; 88 deterministic cases)
 ```
+
+For the User Memory checkpoint, the latest complete single run passed all five
+CTest executables. The portable core reports 65/65 deterministic cases and the
+two theme executables report 23/23 cases, for 88 deterministic cases in total.
+The current 65-case core executable also passed 100 consecutive runs. MSVC
+native code analysis completed for common/core with warnings treated as errors
+and reported zero warnings; the Debug iterator build passed all 65 core cases.
 
 The cases include a 1024 UTF-16-unit internal buffer, non-mutating soft-limit
 notification, hard-limit recovery through Backspace, arbitrary selection
@@ -81,6 +105,11 @@ and 256 separator characters.
 Dictionary/decoder cases cover package round-trip, migration, CRC corruption,
 immutable snapshot replacement, every ranking term, half-life decay, exact/
 initial/incomplete lookup, raw-tail retention, and personalization ordering.
+User Memory cases cover privacy and learning policies, score decay, deletion
+and rehabilitation, resource eviction, bounded-queue barriers, durable shutdown,
+journal-budget compaction, live/replay eviction equivalence, single-writer
+ownership, corrupt-tail recovery, refusal of unreadable or untruncatable
+journals, and fallback to the previous snapshot.
 
 Real-package checks on 2026-08-07:
 
@@ -98,10 +127,10 @@ integration peak working set          93.23 MiB
 initialization, and 140 MiB peak working-set gates while checking five known
 Chinese results against the actual 348,918-entry package.
 
-The portable core has 42 deterministic cases and passed 100 consecutive runs
-under MSVC after prediction-service integration. The separate fuzzer ran 12
-seeds x 10,000 events with no invariant failure; it observed 347 limit
-rejections and 3 stable prefix splits.
+The current portable core has 65 deterministic cases and passed 100 consecutive
+runs under MSVC. The separate composition fuzzer ran 12 seeds x 10,000 events
+with no invariant failure; it observed 347 limit rejections and 3 stable prefix
+splits. One-hour and eight-hour endurance results are not claimed yet.
 
 Theme parsing and management have 23 deterministic cases. After the final
 security review, both theme executables passed 30 consecutive paired runs.
@@ -116,8 +145,14 @@ or libraries installed. The preset remains ready for a machine with
 
 ## Next resume point
 
-Integrate the asynchronous personal-memory writer, then review and integrate
-the TSF adapter before connecting both to the shared decoder service.
+1. Separately review and integrate `src/windows/**`.
+2. Separately review and integrate `tests/tsf_smoke_tests.cpp`.
+3. Connect the accepted TSF layer and User Memory to the shared decoder
+   service.
+
+Resume ledger: `src/windows/**` and `tests/tsf_smoke_tests.cpp` are deliberate,
+unintegrated carry-over in the working tree. They are not part of the User
+Memory checkpoint and must not be staged blindly with it.
 
 ## Known risks
 
@@ -125,7 +160,23 @@ the TSF adapter before connecting both to the shared decoder service.
   machine until that optional workload is installed.
 - End-to-end TSF input requires registration and interactive host-app tests;
   portable tests alone are insufficient.
+- Password fields and incognito windows are not detected automatically;
+  record/direct-view suppression depends on the caller setting
+  `PersonalizationContext::sensitive`, while decoder callers must enable
+  privacy mode or omit the personalization view.
+- No production storage-directory wiring exists, and learning/privacy/
+  per-application policy settings are not persisted.
+- User Memory has no import, export, clear, user-facing backup/restore, or
+  encrypted-sync API. Its internal `.bak` file is only crash recovery.
+- The User Memory storage format is v1. Files with unsupported versions fail
+  validation and may trigger backup recovery; no cross-version migration is
+  implemented yet.
+- Disk-full, forced-termination, one-hour, and eight-hour endurance evidence is
+  still missing.
+- Persistent `Flush()` and orderly destruction have no bounded I/O timeout;
+  production ownership therefore remains in the planned isolated service, not
+  an application-host TSF edit path.
+- The native candidate UI, settings application, installer, shared decoder
+  service, and registered end-to-end TSF input path are not yet available.
 - Theme ZIP extraction, actual PNG/WebP decoding, package installation, and
   reference screenshot baselines are not implemented at this checkpoint.
-- One-hour and eight-hour stress tiers must run after the deterministic fuzzer
-  is stable; until then no endurance result will be reported.

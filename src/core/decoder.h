@@ -21,6 +21,7 @@ struct PersonalizationFeatures {
   double context = 0.0;
   double application = 0.0;
   double negative_feedback = 0.0;
+  bool suppressed = false;
 };
 
 class PersonalizationView {
