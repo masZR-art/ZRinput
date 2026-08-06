@@ -38,6 +38,12 @@ Completed: dictionary, decoder, and ranking checkpoint.
   entries and 411 syllables; an independent second generation was byte-identical.
 - Added strict TSV-to-ZRDICT compiler and query tools. Replaced the memory-heavy
   per-prefix hash expansion with a sorted compact-reading range index.
+- Added bounded beam sentence decoding, so continuous input can be composed
+  from independently indexed words without an exact long-phrase row.
+- Added one permanent replace-latest candidate worker with cooperative
+  cancellation, internal submission IDs, composition-version gates, lock-free
+  publication callbacks, bounded pending state, callback re-entry, and
+  idempotent shutdown.
 
 ## Verification
 
@@ -46,7 +52,7 @@ Verified on Windows 11 x64 with MSVC 19.40.33811 and SDK 10.0.22621.0:
 ```text
 cmake --preset windows-x64                  PASS
 cmake --build --preset x64-release          PASS (strict warnings as errors)
-ctest --preset x64-release                  PASS (1 executable, 24 cases)
+ctest --preset x64-release                  PASS (2 executables, 32 core cases)
 ```
 
 The cases include a 1024 UTF-16-unit internal buffer, non-mutating soft-limit
@@ -75,6 +81,9 @@ integration peak working set          93.23 MiB
 initialization, and 140 MiB peak working-set gates while checking five known
 Chinese results against the actual 348,918-entry package.
 
+The complete core executable passed 100 consecutive runs under MSVC after
+candidate-pipeline integration.
+
 `cmake --preset windows-arm64` was attempted and failed during compiler
 detection because this machine does not have the Visual Studio ARM64 C++ tools
 or libraries installed. The preset remains ready for a machine with
@@ -82,8 +91,8 @@ or libraries installed. The preset remains ready for a machine with
 
 ## Next resume point
 
-Integrate the asynchronous personal-memory writer, replace-latest candidate
-pipeline, and versioned theme engine being developed in parallel.
+Integrate the asynchronous personal-memory writer and versioned theme engine
+being developed in parallel, then connect the TSF adapter and decoder service.
 
 ## Known risks
 

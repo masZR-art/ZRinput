@@ -1,4 +1,5 @@
 add_executable(zrinput_core_tests
+  candidate_pipeline_tests.cpp
   composition_buffer_tests.cpp
   dictionary_decoder_tests.cpp
   pinyin_parser_tests.cpp

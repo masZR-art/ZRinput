@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -242,6 +243,52 @@ ZR_TEST(PersonalizationCanOverrideStaticFrequencyWithoutHiddenWeights) {
   ZR_EXPECT_TRUE(!result.candidates.empty());
   ZR_EXPECT_EQ(result.candidates.front().text, Utf8MiddleKingdom());
   ZR_EXPECT_TRUE(result.candidates.front().features.user_frequency > 0.0);
+}
+
+ZR_TEST(DecoderBuildsContinuousSentenceFromIndependentWords) {
+  PinyinParser parser;
+  parser.ReplaceSyllables(
+      {"hao", "jin", "ma", "tian", "wan", "shang"});
+  std::vector<DictionaryEntry> entries = {
+      {"jin tian", "\xE4\xBB\x8A\xE5\xA4\xA9", 100000.0F,
+       DictionaryLayer::kSystem, 0},
+      {"wan shang", "\xE6\x99\x9A\xE4\xB8\x8A", 100000.0F,
+       DictionaryLayer::kSystem, 0},
+      {"hao", "\xE5\xA5\xBD", 100000.0F, DictionaryLayer::kSystem, 0},
+      {"ma", "\xE5\x90\x97", 100000.0F, DictionaryLayer::kSystem, 0},
+  };
+  auto dictionary =
+      std::make_shared<zrinput::core::DictionarySnapshot>(std::move(entries));
+  DecodeRequest request;
+  request.composition_version = 29;
+  request.analysis = parser.Analyze(u"jintianwanshanghaoma");
+  const auto result = Decoder().Decode(request, dictionary);
+  const std::string expected =
+      "\xE4\xBB\x8A\xE5\xA4\xA9\xE6\x99\x9A\xE4\xB8\x8A"
+      "\xE5\xA5\xBD\xE5\x90\x97";
+  const auto found = std::find_if(
+      result.candidates.begin(), result.candidates.end(),
+      [&expected](const auto& candidate) {
+        return candidate.text == expected &&
+               candidate.annotation == "sentence" &&
+               candidate.residual_raw.empty();
+      });
+  ZR_EXPECT_TRUE(found != result.candidates.end());
+}
+
+ZR_TEST(DecoderHonorsCooperativeCancellationBeforePublishingCandidates) {
+  auto dictionary =
+      std::make_shared<zrinput::core::DictionarySnapshot>(TestEntries());
+  auto parser = TestParser();
+  DecodeRequest request;
+  request.composition_version = 91;
+  request.analysis = parser.Analyze(u"zhongguo");
+  std::stop_source cancellation;
+  ZR_EXPECT_TRUE(cancellation.request_stop());
+  const auto result = Decoder().Decode(request, dictionary, nullptr,
+                                       cancellation.get_token());
+  ZR_EXPECT_EQ(result.composition_version, std::uint64_t{91});
+  ZR_EXPECT_TRUE(result.candidates.empty());
 }
 
 }  // namespace

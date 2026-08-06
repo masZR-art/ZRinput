@@ -1,4 +1,5 @@
 add_library(zrinput_core STATIC
+  candidate_pipeline.cpp
   composition_buffer.cpp
   decoder.cpp
   dictionary.cpp

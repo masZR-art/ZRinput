@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -59,14 +60,27 @@ struct DecodeResult {
   std::vector<DecodedCandidate> candidates;
 };
 
+struct DecoderOptions {
+  std::size_t sentence_beam_width = 24;
+  std::size_t maximum_phrase_syllables = 8;
+  std::size_t entries_per_segment = 6;
+
+  [[nodiscard]] bool IsValid() const noexcept {
+    return sentence_beam_width > 0 && sentence_beam_width <= 256 &&
+           maximum_phrase_syllables > 0 && maximum_phrase_syllables <= 32 &&
+           entries_per_segment > 0 && entries_per_segment <= 64;
+  }
+};
+
 class Decoder {
  public:
-  explicit Decoder(RankingWeights weights = {});
+  explicit Decoder(RankingWeights weights = {}, DecoderOptions options = {});
 
   [[nodiscard]] DecodeResult Decode(
       const DecodeRequest& request,
       const std::shared_ptr<const DictionarySnapshot>& dictionary,
-      const PersonalizationView* personalization = nullptr) const;
+      const PersonalizationView* personalization = nullptr,
+      std::stop_token stop = {}) const;
 
   [[nodiscard]] const RankingWeights& weights() const noexcept {
     return weights_;
@@ -74,7 +88,7 @@ class Decoder {
 
  private:
   RankingWeights weights_;
+  DecoderOptions options_;
 };
 
 }  // namespace zrinput::core
-
