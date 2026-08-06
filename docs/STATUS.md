@@ -6,7 +6,7 @@ Branch: `codex/zrinput-cleanroom`
 
 ## Current checkpoint
 
-Completed: dictionary, decoder, and ranking checkpoint.
+Completed: local prediction-service checkpoint.
 
 ## Completed
 
@@ -48,6 +48,9 @@ Completed: dictionary, decoder, and ranking checkpoint.
   validation, plus deterministic limit cases and seeded composition fuzzing.
 - Added a real-dictionary long-composition benchmark for 32, 64, 128, 256, and
   1024 UTF-16 units with reported P50/P95/P99 edit, parse, and decode latency.
+- Added a bounded, local-only next-word prediction service with named weights,
+  longest-context backoff, time decay, per-application isolation, session
+  learning, explicit score terms, and collision-safe context keys.
 
 ## Verification
 
@@ -56,7 +59,7 @@ Verified on Windows 11 x64 with MSVC 19.40.33811 and SDK 10.0.22621.0:
 ```text
 cmake --preset windows-x64                  PASS
 cmake --build --preset x64-release          PASS (strict warnings as errors)
-ctest --preset x64-release                  PASS (2 executables, 32 core cases)
+ctest --preset x64-release                  PASS (3 executables, 42 core cases)
 ```
 
 The cases include a 1024 UTF-16-unit internal buffer, non-mutating soft-limit
@@ -85,8 +88,8 @@ integration peak working set          93.23 MiB
 initialization, and 140 MiB peak working-set gates while checking five known
 Chinese results against the actual 348,918-entry package.
 
-The portable core has 34 deterministic cases and passed 100 consecutive runs
-under MSVC after candidate-pipeline integration. The separate fuzzer ran 12
+The portable core has 42 deterministic cases and passed 100 consecutive runs
+under MSVC after prediction-service integration. The separate fuzzer ran 12
 seeds x 10,000 events with no invariant failure; it observed 347 limit
 rejections and 3 stable prefix splits.
 
@@ -97,8 +100,8 @@ or libraries installed. The preset remains ready for a machine with
 
 ## Next resume point
 
-Integrate the asynchronous personal-memory writer and versioned theme engine
-being developed in parallel, then connect the TSF adapter and decoder service.
+Integrate the asynchronous personal-memory writer and versioned theme engine,
+then review the TSF adapter and connect it to the decoder service.
 
 ## Known risks
 

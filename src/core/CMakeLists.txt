@@ -4,6 +4,7 @@ add_library(zrinput_core STATIC
   decoder.cpp
   dictionary.cpp
   pinyin_parser.cpp
+  prediction_service.cpp
   ranking.cpp
 )
 
