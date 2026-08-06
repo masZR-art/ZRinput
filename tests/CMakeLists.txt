@@ -10,3 +10,17 @@ target_include_directories(zrinput_core_tests PRIVATE
 zrinput_set_warnings(zrinput_core_tests)
 
 add_test(NAME zrinput_core_tests COMMAND zrinput_core_tests)
+
+add_executable(zrinput_lexicon_integration_tests
+  lexicon_integration_tests.cpp
+)
+target_link_libraries(zrinput_lexicon_integration_tests PRIVATE zrinput_core)
+if(WIN32)
+  target_link_libraries(zrinput_lexicon_integration_tests PRIVATE psapi)
+endif()
+zrinput_set_warnings(zrinput_lexicon_integration_tests)
+
+add_test(NAME zrinput_lexicon_integration_tests
+  COMMAND zrinput_lexicon_integration_tests
+          "${PROJECT_SOURCE_DIR}/data/system.zrdict"
+          "${PROJECT_SOURCE_DIR}/data/pinyin_syllables.txt")

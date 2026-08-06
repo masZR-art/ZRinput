@@ -66,9 +66,14 @@ system.zrdict                         11,034,733 bytes
 entries / syllables                   348,918 / 411
 fresh-generation package hash match  PASS
 xianzai / zhongguo / shurufa / nihao PASS (real Chinese candidates)
-cold load + five CLI queries          658 ms
-100 prefix queries peak working set   93.11 MiB
+package read / index construction     45.56 / 261.00 ms
+1,000-query P50 / P95 / P99           0.039 / 0.340 / 0.596 ms
+integration peak working set          93.23 MiB
 ```
+
+`zrinput_lexicon_integration_tests` enforces 30 ms query P95, 2.5 s cold
+initialization, and 140 MiB peak working-set gates while checking five known
+Chinese results against the actual 348,918-entry package.
 
 `cmake --preset windows-arm64` was attempted and failed during compiler
 detection because this machine does not have the Visual Studio ARM64 C++ tools
