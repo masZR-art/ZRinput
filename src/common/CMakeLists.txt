@@ -1,5 +1,6 @@
 add_library(zrinput_common STATIC
   crc32.cpp
+  json.cpp
   utf.cpp
 )
 

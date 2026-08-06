@@ -35,3 +35,22 @@ zrinput_set_warnings(zrinput_composition_fuzz_tests)
 add_test(NAME zrinput_composition_fuzz_tests
          COMMAND zrinput_composition_fuzz_tests)
 set_tests_properties(zrinput_composition_fuzz_tests PROPERTIES TIMEOUT 60)
+
+add_executable(zrinput_theme_tests
+  theme_tests.cpp
+)
+target_link_libraries(zrinput_theme_tests PRIVATE zrinput_theme)
+target_include_directories(zrinput_theme_tests PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}")
+zrinput_set_warnings(zrinput_theme_tests)
+add_test(NAME zrinput_theme_tests COMMAND zrinput_theme_tests)
+
+add_executable(zrinput_theme_manager_tests
+  theme_manager_tests.cpp
+)
+target_link_libraries(zrinput_theme_manager_tests PRIVATE zrinput_theme)
+target_include_directories(zrinput_theme_manager_tests PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}")
+zrinput_set_warnings(zrinput_theme_manager_tests)
+add_test(NAME zrinput_theme_manager_tests COMMAND zrinput_theme_manager_tests)
+set_tests_properties(zrinput_theme_manager_tests PROPERTIES TIMEOUT 30)

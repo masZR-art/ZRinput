@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "id": "zrinput.windows-11-reference",
+  "name": "Windows 11 Reference",
+  "description": "Clean-room Windows 11 inspired theme using only data tokens and generic glyph semantics.",
+  "color_mode": "follow_system",
+  "material": {
+    "kind": "system_backdrop",
+    "opacity": 0.98
+  },
+  "fonts": {
+    "families": [
+      "Segoe UI",
+      "Microsoft YaHei UI",
+      "sans-serif"
+    ],
+    "candidate_size": 16,
+    "composition_size": 14,
+    "annotation_size": 12,
+    "index_size": 12,
+    "status_size": 13,
+    "candidate_weight": 400,
+    "highlight_weight": 400,
+    "number_style": "plain"
+  },
+  "metrics": {
+    "min_width": 240,
+    "max_width": 720,
+    "max_height": 480,
+    "border_width": 1,
+    "corner_radius": 8,
+    "highlight_corner_radius": 4,
+    "row_height": 38,
+    "candidate_gap": 4,
+    "column_gap": 12,
+    "composition_gap": 6,
+    "window_padding": { "left": 8, "top": 8, "right": 8, "bottom": 8 },
+    "candidate_padding": { "left": 10, "top": 6, "right": 10, "bottom": 6 },
+    "composition_padding": { "left": 10, "top": 5, "right": 10, "bottom": 5 }
+  },
+  "light": {
+    "colors": {
+      "window_background": "#F9F9F9F5",
+      "border": "#00000018",
+      "composition_text": "#262626",
+      "candidate_text": "#202020",
+      "candidate_index": "#606060",
+      "candidate_annotation": "#666666",
+      "highlight_background": "#005FB81C",
+      "highlight_text": "#101010",
+      "candidate_hover_background": "#0000000A",
+      "candidate_pressed_background": "#00000012",
+      "page_indicator": "#5A5A5A",
+      "separator": "#00000012",
+      "status_icon": "#3E3E3E",
+      "status_hover": "#0000000C",
+      "status_pressed": "#00000014",
+      "status_disabled": "#78787878"
+    },
+    "shadow": {
+      "enabled": true,
+      "color": "#000000",
+      "opacity": 0.2,
+      "blur_radius": 20,
+      "offset_x": 0,
+      "offset_y": 8
+    }
+  },
+  "dark": {
+    "colors": {
+      "window_background": "#202020F5",
+      "border": "#FFFFFF18",
+      "composition_text": "#F5F5F5",
+      "candidate_text": "#F8F8F8",
+      "candidate_index": "#BABABA",
+      "candidate_annotation": "#B1B1B1",
+      "highlight_background": "#60CDFF26",
+      "highlight_text": "#FFFFFF",
+      "candidate_hover_background": "#FFFFFF0E",
+      "candidate_pressed_background": "#FFFFFF18",
+      "page_indicator": "#BEBEBE",
+      "separator": "#FFFFFF12",
+      "status_icon": "#E8E8E8",
+      "status_hover": "#FFFFFF10",
+      "status_pressed": "#FFFFFF1A",
+      "status_disabled": "#96969682"
+    },
+    "shadow": {
+      "enabled": true,
+      "color": "#000000",
+      "opacity": 0.42,
+      "blur_radius": 24,
+      "offset_x": 0,
+      "offset_y": 8
+    }
+  },
+  "layout": {
+    "default": "horizontal",
+    "supported": ["horizontal", "vertical", "single_line", "compact", "expanded"],
+    "candidate_count": 9,
+    "show_composition": true,
+    "horizontal_wrap": false,
+    "page_indicator": "chevrons"
+  },
+  "animation": {
+    "enabled": true,
+    "show_ms": 120,
+    "hide_ms": 90,
+    "update_ms": 80,
+    "hover_ms": 70,
+    "easing": [0.2, 0, 0, 1],
+    "reduce_motion_scale": 0
+  },
+  "dpi": {
+    "reference": 96,
+    "scales": [1, 1.25, 1.5, 1.75, 2],
+    "snap_to_pixels": true,
+    "work_area_margin": 8
+  },
+  "hdr": {
+    "adapt_to_display": true,
+    "sdr_reference_white_nits": 203,
+    "clamp_translucent_layers": true
+  },
+  "status_bar": {
+    "visible": true,
+    "button_size": 28,
+    "gap": 2,
+    "padding": { "left": 4, "top": 4, "right": 4, "bottom": 4 },
+    "auto_hide_ms": 2500,
+    "buttons": [
+      { "id": "language", "glyph": "language", "visible": true, "order": 0 },
+      { "id": "punctuation", "glyph": "punctuation", "visible": true, "order": 1 },
+      { "id": "width", "glyph": "character-width", "visible": false, "order": 2 },
+      { "id": "script", "glyph": "script", "visible": true, "order": 3 },
+      { "id": "settings", "glyph": "settings", "visible": true, "order": 4 }
+    ]
+  },
+  "assets": {
+    "icons": {}
+  }
+}

@@ -6,7 +6,7 @@ Branch: `codex/zrinput-cleanroom`
 
 ## Current checkpoint
 
-Completed: local prediction-service checkpoint.
+Completed: versioned theme engine and manifest hot-loading checkpoint.
 
 ## Completed
 
@@ -51,6 +51,16 @@ Completed: local prediction-service checkpoint.
 - Added a bounded, local-only next-word prediction service with named weights,
   longest-context backoff, time decay, per-application isolation, session
   learning, explicit score terms, and collision-safe context keys.
+- Added a strict, bounded UTF-8 JSON parser and a typed v1 theme model whose
+  unknown fields, invalid values, unsafe resource paths, and unsupported
+  versions fall back to an in-binary safe default.
+- Added the clean-room Windows 11 Reference light/dark token set, Draft 2020-12
+  schema, authoring/security specification, and explicit visual-regression
+  thresholds and reference-measurement procedure.
+- Added atomic immutable theme snapshots, stable-file hot loading, exact-content
+  periodic rescans, last-valid rollback, queryable errors, interruptible
+  shutdown, and concurrent idempotent stopping. External bitmap references are
+  rejected until the bounded package loader validates and decodes every asset.
 
 ## Verification
 
@@ -59,7 +69,7 @@ Verified on Windows 11 x64 with MSVC 19.40.33811 and SDK 10.0.22621.0:
 ```text
 cmake --preset windows-x64                  PASS
 cmake --build --preset x64-release          PASS (strict warnings as errors)
-ctest --preset x64-release                  PASS (3 executables, 42 core cases)
+ctest --preset x64-release                  PASS (5 executables, 65 cases)
 ```
 
 The cases include a 1024 UTF-16-unit internal buffer, non-mutating soft-limit
@@ -93,6 +103,12 @@ under MSVC after prediction-service integration. The separate fuzzer ran 12
 seeds x 10,000 events with no invariant failure; it observed 347 limit
 rejections and 3 stable prefix splits.
 
+Theme parsing and management have 23 deterministic cases. After the final
+security review, both theme executables passed 30 consecutive paired runs.
+Draft 2020-12 schema validation passed for the bundled theme and for rejection
+fixtures covering invalid identifiers, Windows device names, trailing-dot
+components, and the 64-resource aggregate boundary.
+
 `cmake --preset windows-arm64` was attempted and failed during compiler
 detection because this machine does not have the Visual Studio ARM64 C++ tools
 or libraries installed. The preset remains ready for a machine with
@@ -100,8 +116,8 @@ or libraries installed. The preset remains ready for a machine with
 
 ## Next resume point
 
-Integrate the asynchronous personal-memory writer and versioned theme engine,
-then review the TSF adapter and connect it to the decoder service.
+Integrate the asynchronous personal-memory writer, then review and integrate
+the TSF adapter before connecting both to the shared decoder service.
 
 ## Known risks
 
@@ -109,5 +125,7 @@ then review the TSF adapter and connect it to the decoder service.
   machine until that optional workload is installed.
 - End-to-end TSF input requires registration and interactive host-app tests;
   portable tests alone are insufficient.
+- Theme ZIP extraction, actual PNG/WebP decoding, package installation, and
+  reference screenshot baselines are not implemented at this checkpoint.
 - One-hour and eight-hour stress tiers must run after the deterministic fuzzer
   is stable; until then no endurance result will be reported.

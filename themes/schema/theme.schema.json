@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zrinput.local/schema/theme-v1.json",
+  "title": "ZRinput theme",
+  "description": "Pure-data, non-executable ZRinput theme manifest version 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "description",
+    "color_mode",
+    "material",
+    "fonts",
+    "metrics",
+    "light",
+    "dark",
+    "layout",
+    "animation",
+    "dpi",
+    "hdr",
+    "status_bar",
+    "assets"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$"
+    },
+    "name": { "$ref": "#/$defs/displayName" },
+    "description": {
+      "type": "string",
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
+    },
+    "color_mode": {
+      "enum": ["light", "dark", "follow_system"]
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "opacity"],
+      "properties": {
+        "kind": { "enum": ["solid", "system_backdrop"] },
+        "opacity": { "type": "number", "minimum": 0.5, "maximum": 1 }
+      }
+    },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "families",
+        "candidate_size",
+        "composition_size",
+        "annotation_size",
+        "index_size",
+        "status_size",
+        "candidate_weight",
+        "highlight_weight",
+        "number_style"
+      ],
+      "properties": {
+        "families": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/fontFamily" }
+        },
+        "candidate_size": { "$ref": "#/$defs/fontSize" },
+        "composition_size": { "$ref": "#/$defs/fontSize" },
+        "annotation_size": { "$ref": "#/$defs/fontSize" },
+        "index_size": { "$ref": "#/$defs/fontSize" },
+        "status_size": { "$ref": "#/$defs/fontSize" },
+        "candidate_weight": { "$ref": "#/$defs/fontWeight" },
+        "highlight_weight": { "$ref": "#/$defs/fontWeight" },
+        "number_style": { "enum": ["plain", "compact"] }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_width",
+        "max_width",
+        "max_height",
+        "border_width",
+        "corner_radius",
+        "highlight_corner_radius",
+        "row_height",
+        "candidate_gap",
+        "column_gap",
+        "composition_gap",
+        "window_padding",
+        "candidate_padding",
+        "composition_padding"
+      ],
+      "properties": {
+        "min_width": { "type": "number", "minimum": 80, "maximum": 2048 },
+        "max_width": { "type": "number", "minimum": 120, "maximum": 4096 },
+        "max_height": { "type": "number", "minimum": 80, "maximum": 2160 },
+        "border_width": { "type": "number", "minimum": 0, "maximum": 4 },
+        "corner_radius": { "type": "number", "minimum": 0, "maximum": 32 },
+        "highlight_corner_radius": { "type": "number", "minimum": 0, "maximum": 24 },
+        "row_height": { "type": "number", "minimum": 20, "maximum": 96 },
+        "candidate_gap": { "type": "number", "minimum": 0, "maximum": 48 },
+        "column_gap": { "type": "number", "minimum": 0, "maximum": 64 },
+        "composition_gap": { "type": "number", "minimum": 0, "maximum": 48 },
+        "window_padding": { "$ref": "#/$defs/insets64" },
+        "candidate_padding": { "$ref": "#/$defs/insets64" },
+        "composition_padding": { "$ref": "#/$defs/insets64" }
+      }
+    },
+    "light": { "$ref": "#/$defs/variant" },
+    "dark": { "$ref": "#/$defs/variant" },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default",
+        "supported",
+        "candidate_count",
+        "show_composition",
+        "horizontal_wrap",
+        "page_indicator"
+      ],
+      "properties": {
+        "default": { "$ref": "#/$defs/layoutName" },
+        "supported": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/layoutName" }
+        },
+        "candidate_count": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "show_composition": { "type": "boolean" },
+        "horizontal_wrap": { "type": "boolean" },
+        "page_indicator": { "enum": ["none", "chevrons", "fraction"] }
+      }
+    },
+    "animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "show_ms",
+        "hide_ms",
+        "update_ms",
+        "hover_ms",
+        "easing",
+        "reduce_motion_scale"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "show_ms": { "$ref": "#/$defs/duration" },
+        "hide_ms": { "$ref": "#/$defs/duration" },
+        "update_ms": { "$ref": "#/$defs/duration" },
+        "hover_ms": { "$ref": "#/$defs/duration" },
+        "easing": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "type": "number", "minimum": -2, "maximum": 2 },
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "type": "number", "minimum": -2, "maximum": 2 }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "reduce_motion_scale": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "dpi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "scales", "snap_to_pixels", "work_area_margin"],
+      "properties": {
+        "reference": { "type": "integer", "minimum": 72, "maximum": 240 },
+        "scales": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "contains": { "const": 1 },
+          "items": { "type": "number", "minimum": 0.75, "maximum": 4 }
+        },
+        "snap_to_pixels": { "type": "boolean" },
+        "work_area_margin": { "type": "number", "minimum": 0, "maximum": 64 }
+      }
+    },
+    "hdr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapt_to_display",
+        "sdr_reference_white_nits",
+        "clamp_translucent_layers"
+      ],
+      "properties": {
+        "adapt_to_display": { "type": "boolean" },
+        "sdr_reference_white_nits": {
+          "type": "number",
+          "minimum": 80,
+          "maximum": 400
+        },
+        "clamp_translucent_layers": { "type": "boolean" }
+      }
+    },
+    "status_bar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visible", "button_size", "gap", "padding", "auto_hide_ms", "buttons"],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "button_size": { "type": "number", "minimum": 20, "maximum": 64 },
+        "gap": { "type": "number", "minimum": 0, "maximum": 32 },
+        "padding": { "$ref": "#/$defs/insets32" },
+        "auto_hide_ms": { "type": "integer", "minimum": 0, "maximum": 60000 },
+        "buttons": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/statusButton" }
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["icons"],
+      "allOf": [
+        {
+          "if": { "required": ["nine_slice"] },
+          "then": {
+            "properties": {
+              "icons": { "maxProperties": 63 }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "icons": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": { "$ref": "#/$defs/token" },
+          "additionalProperties": { "$ref": "#/$defs/assetPath" }
+        },
+        "nine_slice": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "slice"],
+          "properties": {
+            "path": { "$ref": "#/$defs/assetPath" },
+            "slice": { "$ref": "#/$defs/insets512" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "fontFamily": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "fontSize": { "type": "number", "minimum": 8, "maximum": 48 },
+    "fontWeight": { "type": "integer", "minimum": 100, "maximum": 900 },
+    "duration": { "type": "integer", "minimum": 0, "maximum": 1000 },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "layoutName": {
+      "enum": ["horizontal", "vertical", "single_line", "compact", "expanded"]
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?$"
+    },
+    "insets32": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "top", "right", "bottom"],
+      "properties": {
+        "left": { "type": "number", "minimum": 0, "maximum": 32 },
+        "top": { "type": "number", "minimum": 0, "maximum": 32 },
+        "right": { "type": "number", "minimum": 0, "maximum": 32 },
+        "bottom": { "type": "number", "minimum": 0, "maximum": 32 }
+      }
+    },
+    "insets64": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "top", "right", "bottom"],
+      "properties": {
+        "left": { "type": "number", "minimum": 0, "maximum": 64 },
+        "top": { "type": "number", "minimum": 0, "maximum": 64 },
+        "right": { "type": "number", "minimum": 0, "maximum": 64 },
+        "bottom": { "type": "number", "minimum": 0, "maximum": 64 }
+      }
+    },
+    "insets512": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "top", "right", "bottom"],
+      "properties": {
+        "left": { "type": "number", "minimum": 0, "maximum": 512 },
+        "top": { "type": "number", "minimum": 0, "maximum": 512 },
+        "right": { "type": "number", "minimum": 0, "maximum": 512 },
+        "bottom": { "type": "number", "minimum": 0, "maximum": 512 }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_background",
+        "border",
+        "composition_text",
+        "candidate_text",
+        "candidate_index",
+        "candidate_annotation",
+        "highlight_background",
+        "highlight_text",
+        "candidate_hover_background",
+        "candidate_pressed_background",
+        "page_indicator",
+        "separator",
+        "status_icon",
+        "status_hover",
+        "status_pressed",
+        "status_disabled"
+      ],
+      "properties": {
+        "window_background": { "$ref": "#/$defs/color" },
+        "border": { "$ref": "#/$defs/color" },
+        "composition_text": { "$ref": "#/$defs/color" },
+        "candidate_text": { "$ref": "#/$defs/color" },
+        "candidate_index": { "$ref": "#/$defs/color" },
+        "candidate_annotation": { "$ref": "#/$defs/color" },
+        "highlight_background": { "$ref": "#/$defs/color" },
+        "highlight_text": { "$ref": "#/$defs/color" },
+        "candidate_hover_background": { "$ref": "#/$defs/color" },
+        "candidate_pressed_background": { "$ref": "#/$defs/color" },
+        "page_indicator": { "$ref": "#/$defs/color" },
+        "separator": { "$ref": "#/$defs/color" },
+        "status_icon": { "$ref": "#/$defs/color" },
+        "status_hover": { "$ref": "#/$defs/color" },
+        "status_pressed": { "$ref": "#/$defs/color" },
+        "status_disabled": { "$ref": "#/$defs/color" }
+      }
+    },
+    "shadow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "color", "opacity", "blur_radius", "offset_x", "offset_y"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "color": { "$ref": "#/$defs/color" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blur_radius": { "type": "number", "minimum": 0, "maximum": 64 },
+        "offset_x": { "type": "number", "minimum": -32, "maximum": 32 },
+        "offset_y": { "type": "number", "minimum": -32, "maximum": 32 }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colors", "shadow"],
+      "properties": {
+        "colors": { "$ref": "#/$defs/colors" },
+        "shadow": { "$ref": "#/$defs/shadow" }
+      }
+    },
+    "statusButton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "glyph", "visible", "order"],
+      "properties": {
+        "id": { "$ref": "#/$defs/token" },
+        "glyph": { "$ref": "#/$defs/token" },
+        "visible": { "type": "boolean" },
+        "order": { "type": "integer", "minimum": 0, "maximum": 255 }
+      }
+    },
+    "assetPath": {
+      "allOf": [
+        {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^assets/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*\\.(?:png|webp)$"
+        },
+        { "not": { "pattern": "(?:^|/)\\.{1,2}(?:/|$)" } },
+        { "not": { "pattern": "(?:^|/)[^/]+\\.(?:/|$)" } },
+        {
+          "not": {
+            "pattern": "(?:^|/)(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(?:\\.|/|$)"
+          }
+        }
+      ]
+    }
+  }
+}
