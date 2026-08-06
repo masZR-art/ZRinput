@@ -33,6 +33,11 @@ Completed: dictionary, decoder, and ranking checkpoint.
 - Documented and implemented named ranking weights with per-candidate raw and
   weighted score breakdowns, logarithmic static frequency, time decay,
   application/context hooks, correction/completion costs, and negative feedback.
+- Added a reproducible maintenance pipeline using freshly downloaded,
+  SHA-256-pinned MIT-licensed sources. The generated system package has 348,918
+  entries and 411 syllables; an independent second generation was byte-identical.
+- Added strict TSV-to-ZRDICT compiler and query tools. Replaced the memory-heavy
+  per-prefix hash expansion with a sorted compact-reading range index.
 
 ## Verification
 
@@ -53,6 +58,17 @@ and 256 separator characters.
 Dictionary/decoder cases cover package round-trip, migration, CRC corruption,
 immutable snapshot replacement, every ranking term, half-life decay, exact/
 initial/incomplete lookup, raw-tail retention, and personalization ordering.
+
+Real-package checks on 2026-08-07:
+
+```text
+system.zrdict                         11,034,733 bytes
+entries / syllables                   348,918 / 411
+fresh-generation package hash match  PASS
+xianzai / zhongguo / shurufa / nihao PASS (real Chinese candidates)
+cold load + five CLI queries          658 ms
+100 prefix queries peak working set   93.11 MiB
+```
 
 `cmake --preset windows-arm64` was attempted and failed during compiler
 detection because this machine does not have the Visual Studio ARM64 C++ tools

@@ -105,8 +105,9 @@ class DictionarySnapshot {
 
   std::vector<DictionaryEntry> entries_;
   Index exact_index_;
-  Index compact_prefix_index_;
   Index initials_index_;
+  std::vector<std::string> compact_readings_;
+  std::vector<std::size_t> compact_order_;
 };
 
 class DictionaryService {
@@ -135,4 +136,3 @@ std::string CompactReading(std::string_view reading);
 std::string ReadingInitials(std::string_view reading);
 
 }  // namespace zrinput::core
-

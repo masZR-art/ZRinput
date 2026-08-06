@@ -1,0 +1,8 @@
+add_executable(zrinput_dictionary_compiler dictionary_compiler.cpp)
+target_link_libraries(zrinput_dictionary_compiler PRIVATE zrinput_core)
+zrinput_set_warnings(zrinput_dictionary_compiler)
+
+add_executable(zrinput_query query_cli.cpp)
+target_link_libraries(zrinput_query PRIVATE zrinput_core)
+zrinput_set_warnings(zrinput_query)
+

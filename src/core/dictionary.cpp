@@ -359,13 +359,13 @@ DictionaryLoadReport DictionaryPackage::WriteAtomic(
 
 DictionarySnapshot::DictionarySnapshot(std::vector<DictionaryEntry> entries)
     : entries_(std::move(entries)) {
+  compact_readings_.reserve(entries_.size());
+  compact_order_.reserve(entries_.size());
   for (std::size_t index = 0; index < entries_.size(); ++index) {
     const auto& entry = entries_[index];
     exact_index_[entry.reading].push_back(index);
-    const std::string compact = CompactReading(entry.reading);
-    for (std::size_t size = 1; size <= compact.size(); ++size) {
-      compact_prefix_index_[compact.substr(0, size)].push_back(index);
-    }
+    compact_readings_.push_back(CompactReading(entry.reading));
+    compact_order_.push_back(index);
     initials_index_[ReadingInitials(entry.reading)].push_back(index);
   }
   const auto compare = [this](std::size_t left, std::size_t right) {
@@ -379,12 +379,19 @@ DictionarySnapshot::DictionarySnapshot(std::vector<DictionaryEntry> entries)
     }
     return lhs.text < rhs.text;
   };
-  for (auto* index : {&exact_index_, &compact_prefix_index_, &initials_index_}) {
+  for (auto* index : {&exact_index_, &initials_index_}) {
     for (auto& [key, values] : *index) {
       static_cast<void>(key);
       std::stable_sort(values.begin(), values.end(), compare);
     }
   }
+  std::stable_sort(compact_order_.begin(), compact_order_.end(),
+                   [this, &compare](std::size_t left, std::size_t right) {
+                     if (compact_readings_[left] != compact_readings_[right]) {
+                       return compact_readings_[left] < compact_readings_[right];
+                     }
+                     return compare(left, right);
+                   });
 }
 
 std::vector<const DictionaryEntry*> DictionarySnapshot::LookupExact(
@@ -396,7 +403,41 @@ std::vector<const DictionaryEntry*> DictionarySnapshot::LookupExact(
 std::vector<const DictionaryEntry*> DictionarySnapshot::LookupCompactPrefix(
     std::string_view compact_reading,
     std::size_t limit) const {
-  return Lookup(compact_prefix_index_, compact_reading, limit);
+  std::vector<const DictionaryEntry*> result;
+  if (compact_reading.empty() || limit == 0) {
+    return result;
+  }
+  const auto begin = std::lower_bound(
+      compact_order_.begin(), compact_order_.end(), compact_reading,
+      [this](std::size_t index, std::string_view key) {
+        return compact_readings_[index] < key;
+      });
+  for (auto iterator = begin; iterator != compact_order_.end(); ++iterator) {
+    const std::size_t index = *iterator;
+    if (!compact_readings_[index].starts_with(compact_reading)) {
+      break;
+    }
+    result.push_back(&entries_[index]);
+  }
+  const auto compare = [](const DictionaryEntry* left,
+                          const DictionaryEntry* right) {
+    if (left->frequency != right->frequency) {
+      return left->frequency > right->frequency;
+    }
+    if (left->layer != right->layer) {
+      return left->layer > right->layer;
+    }
+    return left->text < right->text;
+  };
+  if (result.size() > limit) {
+    std::partial_sort(result.begin(), result.begin() +
+                                        static_cast<std::ptrdiff_t>(limit),
+                      result.end(), compare);
+    result.resize(limit);
+  } else {
+    std::stable_sort(result.begin(), result.end(), compare);
+  }
+  return result;
 }
 
 std::vector<const DictionaryEntry*> DictionarySnapshot::LookupInitials(
@@ -481,4 +522,3 @@ void DictionaryService::RebuildSnapshotLocked() {
 }
 
 }  // namespace zrinput::core
-

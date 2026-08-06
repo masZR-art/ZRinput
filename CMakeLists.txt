@@ -20,6 +20,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(ZRinputWarnings)
 
 add_subdirectory(src)
+add_subdirectory(tools)
 
 if(ZRINPUT_BUILD_TESTS)
   include(CTest)
@@ -29,4 +30,3 @@ endif()
 
 include(GNUInstallDirs)
 include(CPack)
-

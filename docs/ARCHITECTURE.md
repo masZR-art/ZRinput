@@ -11,7 +11,8 @@ thread-affine object.
 Host application
   -> TSF Adapter
      -> Composition Engine
-     -> cancellable Candidate Pipeline
+     -> local IPC client -> shared Decoder Service
+        -> cancellable Candidate Pipeline
         -> Pinyin Parser -> Decoder -> Dictionary Service
                          -> Ranking -> Prediction Service
                          -> User Memory (read snapshot)
@@ -24,6 +25,11 @@ Settings App -> Config Store -> atomic snapshot + change notification
 User Memory -> bounded queue -> background journal/snapshot writer
 Telemetry Adapter -> disabled no-op by default
 ```
+
+The full dictionary is owned once by the per-user decoder service. The
+in-process TSF DLL has a small emergency fallback only. This avoids multiplying
+the measured dictionary working set across every text-hosting application and
+keeps dictionary/database failure outside host process boundaries.
 
 ## ADR-001: TSF, not IMM32
 
@@ -83,4 +89,3 @@ themes fall back to the embedded safe theme.
 The telemetry port accepts only aggregate timing/error counters and is wired to
 a disabled no-op adapter by default. Raw composition, candidates, committed
 text, and personal-memory records are never telemetry fields.
-
