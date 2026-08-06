@@ -6,3 +6,6 @@ add_executable(zrinput_query query_cli.cpp)
 target_link_libraries(zrinput_query PRIVATE zrinput_core)
 zrinput_set_warnings(zrinput_query)
 
+add_executable(zrinput_long_benchmark long_composition_benchmark.cpp)
+target_link_libraries(zrinput_long_benchmark PRIVATE zrinput_core)
+zrinput_set_warnings(zrinput_long_benchmark)

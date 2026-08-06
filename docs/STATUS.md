@@ -44,6 +44,10 @@ Completed: dictionary, decoder, and ranking checkpoint.
   cancellation, internal submission IDs, composition-version gates, lock-free
   publication callbacks, bounded pending state, callback re-entry, and
   idempotent shutdown.
+- Added safe prefix removal with selection translation and surrogate-boundary
+  validation, plus deterministic limit cases and seeded composition fuzzing.
+- Added a real-dictionary long-composition benchmark for 32, 64, 128, 256, and
+  1024 UTF-16 units with reported P50/P95/P99 edit, parse, and decode latency.
 
 ## Verification
 
@@ -81,8 +85,10 @@ integration peak working set          93.23 MiB
 initialization, and 140 MiB peak working-set gates while checking five known
 Chinese results against the actual 348,918-entry package.
 
-The complete core executable passed 100 consecutive runs under MSVC after
-candidate-pipeline integration.
+The portable core has 34 deterministic cases and passed 100 consecutive runs
+under MSVC after candidate-pipeline integration. The separate fuzzer ran 12
+seeds x 10,000 events with no invariant failure; it observed 347 limit
+rejections and 3 stable prefix splits.
 
 `cmake --preset windows-arm64` was attempted and failed during compiler
 detection because this machine does not have the Visual Studio ARM64 C++ tools

@@ -165,6 +165,24 @@ bool CompositionBuffer::ReplaceForReplay(std::u16string text,
   return true;
 }
 
+std::optional<std::u16string> CompositionBuffer::CommitPrefix(
+    std::size_t units) {
+  if (units == 0 || units > text_.size() ||
+      (units < text_.size() && utf::IsHighSurrogate(text_[units - 1]) &&
+       utf::IsLowSurrogate(text_[units]))) {
+    return std::nullopt;
+  }
+  std::u16string prefix = text_.substr(0, units);
+  text_.erase(0, units);
+  const auto translate = [units](std::size_t offset) {
+    return offset <= units ? std::size_t{0} : offset - units;
+  };
+  selection_.anchor = translate(selection_.anchor);
+  selection_.caret = translate(selection_.caret);
+  MarkChanged();
+  return prefix;
+}
+
 void CompositionBuffer::Clear() noexcept {
   if (text_.empty() && selection_.empty()) {
     return;
@@ -188,4 +206,3 @@ void CompositionBuffer::MarkChanged() noexcept {
 }
 
 }  // namespace zrinput::core
-

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <optional>
 
 namespace zrinput::core {
 
@@ -51,6 +52,8 @@ class CompositionBuffer {
   [[nodiscard]] bool SetSelection(TextSelection selection);
   [[nodiscard]] bool ReplaceForReplay(std::u16string text,
                                       TextSelection selection);
+  [[nodiscard]] std::optional<std::u16string> CommitPrefix(
+      std::size_t units);
   void Clear() noexcept;
 
   [[nodiscard]] const std::u16string& text() const noexcept { return text_; }
@@ -77,4 +80,3 @@ class CompositionBuffer {
 };
 
 }  // namespace zrinput::core
-

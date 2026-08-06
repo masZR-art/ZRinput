@@ -25,3 +25,12 @@ add_test(NAME zrinput_lexicon_integration_tests
   COMMAND zrinput_lexicon_integration_tests
           "${PROJECT_SOURCE_DIR}/data/system.zrdict"
           "${PROJECT_SOURCE_DIR}/data/pinyin_syllables.txt")
+
+add_executable(zrinput_composition_fuzz_tests
+  composition_fuzz_tests.cpp
+)
+target_link_libraries(zrinput_composition_fuzz_tests PRIVATE zrinput_core)
+zrinput_set_warnings(zrinput_composition_fuzz_tests)
+add_test(NAME zrinput_composition_fuzz_tests
+         COMMAND zrinput_composition_fuzz_tests)
+set_tests_properties(zrinput_composition_fuzz_tests PROPERTIES TIMEOUT 60)

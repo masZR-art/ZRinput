@@ -84,9 +84,27 @@ ZR_TEST(SupportsA1024UnitInternalBuffer) {
   ZR_EXPECT_EQ(buffer.text().size(), std::size_t{1024});
 }
 
+ZR_TEST(CommitsPrefixAndTranslatesSelectionWithoutLosingTail) {
+  CompositionBuffer buffer;
+  ZR_EXPECT_EQ(buffer.Insert(u"xianzaishang"), EditOutcome::kApplied);
+  ZR_EXPECT_TRUE(buffer.SetSelection({5, 10}));
+  const auto prefix = buffer.CommitPrefix(7);
+  ZR_EXPECT_TRUE(prefix.has_value());
+  ZR_EXPECT_EQ(*prefix, std::u16string(u"xianzai"));
+  ZR_EXPECT_EQ(buffer.text(), std::u16string(u"shang"));
+  ZR_EXPECT_EQ(buffer.selection().anchor, std::size_t{0});
+  ZR_EXPECT_EQ(buffer.selection().caret, std::size_t{3});
+}
+
+ZR_TEST(RefusesPrefixSplitInsideSurrogatePair) {
+  CompositionBuffer buffer;
+  ZR_EXPECT_EQ(buffer.Insert(u"a\U0001F600b"), EditOutcome::kApplied);
+  ZR_EXPECT_TRUE(!buffer.CommitPrefix(2).has_value());
+  ZR_EXPECT_EQ(buffer.text(), std::u16string(u"a\U0001F600b"));
+}
+
 }  // namespace
 
 int main() {
   return zrinput::test::RunAll();
 }
-
