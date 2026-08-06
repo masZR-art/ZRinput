@@ -1,12 +1,12 @@
 # Development status
 
-Last updated: 2026-07-29
+Last updated: 2026-08-07
 
 Branch: `codex/zrinput-cleanroom`
 
 ## Current checkpoint
 
-Completed: tolerant pinyin analysis checkpoint.
+Completed: dictionary, decoder, and ranking checkpoint.
 
 ## Completed
 
@@ -23,6 +23,16 @@ Completed: tolerant pinyin analysis checkpoint.
   transposition corrections, and retains an unparsed tail.
 - Stable-prefix selection considers only complete syllable boundaries and
   refuses unsafe separator-only splits.
+- Added CRC32-protected, versioned binary dictionary packages with byte/entry/
+  field budgets, v1 migration, atomic replacement, and corruption rejection.
+- Added system/domain/user/session dictionary layers that publish immutable
+  exact, compact-prefix, and initial indexes by generation.
+- Added version-preserving decode requests and candidates that retain raw
+  unparsed tails. Exact full pinyin, simplified initials, and incomplete
+  prefixes share one explicit scoring path.
+- Documented and implemented named ranking weights with per-candidate raw and
+  weighted score breakdowns, logarithmic static frequency, time decay,
+  application/context hooks, correction/completion costs, and negative feedback.
 
 ## Verification
 
@@ -31,7 +41,7 @@ Verified on Windows 11 x64 with MSVC 19.40.33811 and SDK 10.0.22621.0:
 ```text
 cmake --preset windows-x64                  PASS
 cmake --build --preset x64-release          PASS (strict warnings as errors)
-ctest --preset x64-release                  PASS (1 executable, 14 cases)
+ctest --preset x64-release                  PASS (1 executable, 24 cases)
 ```
 
 The cases include a 1024 UTF-16-unit internal buffer, non-mutating soft-limit
@@ -40,6 +50,9 @@ replacement, word deletion, and surrogate-pair-safe movement/deletion.
 Parser cases cover ambiguous segmentation, mixed case/umlaut normalization,
 repeated separators, invalid tails, abbreviations, corrections, stable splits,
 and 256 separator characters.
+Dictionary/decoder cases cover package round-trip, migration, CRC corruption,
+immutable snapshot replacement, every ranking term, half-life decay, exact/
+initial/incomplete lookup, raw-tail retention, and personalization ordering.
 
 `cmake --preset windows-arm64` was attempted and failed during compiler
 detection because this machine does not have the Visual Studio ARM64 C++ tools
@@ -48,8 +61,8 @@ or libraries installed. The preset remains ready for a machine with
 
 ## Next resume point
 
-Implement and test dictionary/decoder contracts, the explicit ranking formula,
-and the version-bound candidate request model.
+Integrate the asynchronous personal-memory writer, replace-latest candidate
+pipeline, and versioned theme engine being developed in parallel.
 
 ## Known risks
 

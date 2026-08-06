@@ -1,6 +1,9 @@
 add_library(zrinput_core STATIC
   composition_buffer.cpp
+  decoder.cpp
+  dictionary.cpp
   pinyin_parser.cpp
+  ranking.cpp
 )
 
 target_include_directories(zrinput_core PUBLIC "${PROJECT_SOURCE_DIR}/src")
