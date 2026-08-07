@@ -50,12 +50,13 @@ dictionary once. Values are milliseconds.
 
 | Units | Replace P50/P95/P99 | Parse P50/P95/P99 | Decode P50/P95/P99 |
 | ---: | --- | --- | --- |
-| 32 | 0 / 0.0001 / 0.0001 | 0.638 / 0.682 / 0.892 | 2.259 / 2.447 / 2.798 |
-| 64 | 0 / 0.0001 / 0.0001 | 1.516 / 3.082 / 3.209 | 2.977 / 4.844 / 4.929 |
-| 128 | 0 / 0.0001 / 0.0001 | 6.575 / 8.803 / 9.650 | 2.338 / 3.461 / 3.703 |
-| 256 | 0 / 0.0001 / 0.0001 | 11.348 / 16.046 / 18.252 | 3.002 / 5.444 / 5.485 |
-| 1024 | 0 / 0.0001 / 0.0001 | 79.691 / 97.121 / 98.016 | 5.570 / 10.600 / 11.595 |
+| 32 | 0 / 0.0001 / 0.0001 | 0.638 / 0.837 / 1.040 | 2.231 / 3.431 / 3.538 |
+| 64 | 0 / 0.0001 / 0.0001 | 1.475 / 3.443 / 4.534 | 2.812 / 3.319 / 3.345 |
+| 128 | 0 / 0.0001 / 0.0001 | 6.312 / 7.542 / 8.022 | 2.263 / 3.108 / 3.336 |
+| 256 | 0 / 0.0001 / 0.0001 | 10.685 / 16.120 / 17.396 | 3.015 / 3.358 / 3.472 |
+| 1024 | 0 / 0.0001 / 0.0001 | 76.639 / 96.669 / 97.017 | 5.377 / 5.667 / 5.705 |
 
+These values are from the final x64 Release verification run on 2026-08-07.
 The measured 256-unit parse plus edit P95 is below the 20 ms requirement. The
 1024-unit result establishes safe internal operation but shows why incremental
 parse reuse remains a performance milestone for extreme edits.
@@ -65,4 +66,3 @@ parse reuse remains a performance milestone for extreme edits.
 The one-hour and eight-hour host-integrated tiers have not run yet. No duration,
 memory plateau, crash, deadlock, lost-key, or ordering claim will be made until
 the TSF host harness, event recorder, and replay minimizer are connected.
-

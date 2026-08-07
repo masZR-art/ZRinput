@@ -4,6 +4,12 @@ This document defines the intended scope of the first installable test
 release. It is not the current implementation checklist; see
 [STATUS.md](STATUS.md) for verified progress.
 
+The native TSF skeleton checkpoint is intentionally smaller than this MVP. A
+DLL that registers or displays raw pinyin does not satisfy the test-release
+acceptance gate: the release must provide an offline Chinese candidate path,
+selection/commit controls, a nonactivating candidate surface, supported
+install/repair/uninstall commands, and verified interactive host tests.
+
 ## Included in the first installable checkpoint
 
 - x64 and ARM64 C++20 builds from one source tree.

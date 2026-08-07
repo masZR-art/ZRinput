@@ -31,6 +31,42 @@ User Memory -> bounded queue -> background journal/snapshot writer
 Telemetry Adapter -> disabled no-op by default
 ```
 
+## Source tree ownership
+
+```text
+src/core/             portable composition, parsing, dictionaries, decoding,
+                      ranking, prediction, and memory contracts
+src/theme/            typed theme tokens and safe snapshot/hot-load runtime
+src/windows/tsf/      in-process COM server and TSF adapter only
+data/                 reproducibly generated offline lexicon artifacts
+themes/               data-only built-in themes and schema
+tests/                deterministic unit, integration, fuzz, and native tests
+tools/                offline dictionary and developer utilities
+scripts/              reproducible maintenance and verification entry points
+docs/                 decisions, contracts, status, and resume ledger
+```
+
+The TSF DLL may depend on the portable core, but the portable core never
+depends on Win32 or COM. Candidate UI, settings, shared-service IPC, backup,
+sync, and telemetry adapters will each receive their own ownership boundary;
+they are not folded into `text_service.cpp`.
+
+## Delivery milestones
+
+1. Portable composition, parser, dictionary, decoder, prediction, theme, and
+   durable User Memory foundations.
+2. Transactional x64/ARM64 TSF DLL skeleton with lifecycle and PE verification.
+3. Shared decoder boundary plus the minimum full-pinyin candidate and commit
+   path.
+4. Nonactivating Direct2D/DirectWrite candidate UI and theme hot reload.
+5. Settings, package install/repair/uninstall, backup, and application policy.
+6. Cross-application, DPI, visual-regression, performance, and endurance
+   qualification for the first test release.
+
+Every milestone is committed and pushed only after its own build and tests so
+development can resume safely after interruption. [STATUS.md](STATUS.md) is the
+durable resume ledger and records incomplete carry-over explicitly.
+
 The full dictionary is owned once by the per-user decoder service. The
 in-process TSF DLL has a small emergency fallback only. This avoids multiplying
 the measured dictionary working set across every text-hosting application and

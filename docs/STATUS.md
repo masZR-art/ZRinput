@@ -6,7 +6,7 @@ Branch: `codex/zrinput-cleanroom`
 
 ## Current checkpoint
 
-Completed: asynchronous, local User Memory checkpoint.
+Completed: transactional native TSF adapter skeleton checkpoint.
 
 ## Completed
 
@@ -78,23 +78,71 @@ Completed: asynchronous, local User Memory checkpoint.
 - Added recovery from the previous valid snapshot and truncation of corrupt or
   incomplete journal tails. Runtime and load-time entry, feature, string,
   journal-record, field, and storage budgets are enforced.
+- Added a production `ZRinputTsf.dll` target and shared `zrinput_tsf_impl`
+  library so the DLL and native tests execute the same class-factory,
+  registration, and text-service sources.
+- Added COM unload accounting plus TSF activation, key, composition,
+  document/context focus, and teardown lifecycles. Sink unadvise failures retain
+  state for a complete retry instead of silently leaking an untracked sink.
+- Added a single-flight edit-session queue with update coalescing, ordered
+  commit/split/cancel barriers, version and context-epoch gates, bounded pending
+  state, current/stale failure budgets, transactional key rollback, and
+  fail-open behavior after a host repeatedly refuses edit sessions.
+- Queue admission distinguishes rejection before mutation, accepted asynchronous
+  work, and synchronous completion. Barrier requests persist explicit
+  before-write, composition-started/await-write, text-written/await-end,
+  ended/await-remainder, before-clear, and cleared/await-end phases so retries
+  never replay an irreversible mutation.
+- Added external-composition termination invalidation, so already accepted
+  delayed barrier sessions cannot rewrite or end a composition destroyed by the
+  host. Split-dependent remainder updates are invalidated together.
+- Added a post-`SetText` transaction boundary. Selection placement is retried
+  from a fresh range; persistent failure commits the already-written text, and
+  a host that also refuses termination receives ordinary keys directly with no
+  stale internal snapshot left to overwrite its text. Enter and Escape remain
+  deterministic recovery paths for that host-owned composition.
+- Added a pre-`SetText` composition-start boundary. If the first write fails,
+  the adapter ends the new empty composition before returning the key; if the
+  host also refuses that cleanup, the accepted request retains its snapshot and
+  retries without exposing the key. Focus loss converts that state to a bounded
+  cancel, and every successful end releases the intentional-end COM reference.
+- Added TSF-level 256-unit soft-limit behavior. A letter-delimited apostrophe
+  may split the raw composition; no boundary, separator-only input, and repeated
+  separators reject growth without preventing Backspace or Escape recovery.
+- Added fail-closed password/private/PIN InputScope checks. Every queued edit
+  closes the learning gate until its current edit session successfully proves a
+  nonsensitive scope.
+- Added preflighted COM/TSF registration transactions, immediate pre-write COM
+  snapshots, exact type/byte restoration, mutation ownership, reverse rollback,
+  owned uninstall, a per-user cross-process mutex, and rollback-failure behavior
+  that keeps the DLL path reachable for repair.
+- Added a fixed export definition, version resource, explicit Windows API
+  baseline and system libraries, static MSVC runtime, CFG, ASLR, NX, and
+  high-entropy VA checks.
 
 ## Verification
 
 Verified on Windows 11 x64 with MSVC 19.40.33811 and SDK 10.0.22621.0:
 
 ```text
-cmake --preset windows-x64                  PASS
-cmake --build --preset x64-release          PASS (strict warnings as errors)
-ctest --preset x64-release                  PASS (5 executables; 88 deterministic cases)
+clean x64 configure                         PASS
+clean Release build                         PASS (strict warnings as errors)
+Release CTest                               PASS (8/8)
+Debug build                                 PASS
+Debug functional/iterator CTest             PASS (7/7; Release memory gate excluded)
+MSVC Native Code Analysis                   PASS (zero warnings)
 ```
 
-For the User Memory checkpoint, the latest complete single run passed all five
-CTest executables. The portable core reports 65/65 deterministic cases and the
-two theme executables report 23/23 cases, for 88 deterministic cases in total.
-The current 65-case core executable also passed 100 consecutive runs. MSVC
-native code analysis completed for common/core with warnings treated as errors
-and reported zero warnings; the Debug iterator build passed all 65 core cases.
+The harness-backed executables report 65 portable-core, 23 theme, 76 TSF
+lifecycle/COM, and 26 registration-transaction cases: 190/190 deterministic
+cases in total. The complete TSF executable passed 100 consecutive independent
+Release processes (7,600/7,600 case executions), and the registration executable
+passed 100 consecutive Release runs. MSVC native code analysis covered common,
+core, and every TSF production source with warnings treated as errors and
+reported zero warnings.
+The Debug functional run included all harness cases, fuzzing, and PE checks.
+The real-dictionary memory gate is Release-only; a diagnostic Debug run reached
+287.832 MiB and correctly exceeded the 140 MiB Release budget.
 
 The cases include a 1024 UTF-16-unit internal buffer, non-mutating soft-limit
 notification, hard-limit recovery through Backspace, arbitrary selection
@@ -118,9 +166,9 @@ system.zrdict                         11,034,733 bytes
 entries / syllables                   348,918 / 411
 fresh-generation package hash match  PASS
 xianzai / zhongguo / shurufa / nihao PASS (real Chinese candidates)
-package read / index construction     45.56 / 261.00 ms
-1,000-query P50 / P95 / P99           0.039 / 0.340 / 0.596 ms
-integration peak working set          93.23 MiB
+package read / index construction     45.275 / 305.938 ms
+1,000-query P50 / P95 / P99           0.088 / 0.295 / 0.462 ms
+integration peak working set          93.113 MiB
 ```
 
 `zrinput_lexicon_integration_tests` enforces 30 ms query P95, 2.5 s cold
@@ -143,16 +191,30 @@ detection because this machine does not have the Visual Studio ARM64 C++ tools
 or libraries installed. The preset remains ready for a machine with
 `Microsoft.VisualStudio.Component.VC.Tools.ARM64`.
 
+Native TSF evidence from the clean Release build:
+
+```text
+ZRinputTsf.dll                         217,600 bytes
+SHA-256                                7FD7645D17D5297A128C410D069F19786F3BB526D5AC6A81AD8C57225D32B930
+machine / exports                      AMD64 / exact four COM exports
+CFG / ASLR / NX / high-entropy VA      PASS
+dynamic VC/UCRT dependency             none
+file/product version                   0.2.0.0
+Authenticode                           NotSigned
+known HKCU/HKLM COM and TIP residue     none
+```
+
+`cmake --install` copied the same-hash DLL to the staging prefix. This tests
+the install manifest only; it does not register a TIP and is not a supported
+installer.
+
 ## Next resume point
 
-1. Separately review and integrate `src/windows/**`.
-2. Separately review and integrate `tests/tsf_smoke_tests.cpp`.
-3. Connect the accepted TSF layer and User Memory to the shared decoder
-   service.
-
-Resume ledger: `src/windows/**` and `tests/tsf_smoke_tests.cpp` are deliberate,
-unintegrated carry-over in the working tree. They are not part of the User
-Memory checkpoint and must not be staged blindly with it.
+1. Define and implement the shared decoder-service ownership and request
+   boundary without loading the full dictionary in each host process.
+2. Connect versioned full-pinyin decode results to TSF composition state.
+3. Add candidate selection controls and the first nonactivating native
+   candidate surface before any claim of usable Chinese input.
 
 ## Known risks
 
@@ -160,6 +222,18 @@ Memory checkpoint and must not be staged blindly with it.
   machine until that optional workload is installed.
 - End-to-end TSF input requires registration and interactive host-app tests;
   portable tests alone are insufficient.
+- The DLL is not signed. It must not be distributed as a production text
+  service until signing and package trust are in place.
+- The adapter currently composes and commits raw lowercase pinyin only. It does
+  not call the decoder, display candidates, consume Space/numeric/page keys, or
+  output Chinese text.
+- If an old context refuses a confirmed commit/split/cancel edit session twice,
+  the adapter retires that operation so the new foreground application remains
+  usable. This explicit degradation and the case where a host accepts an async
+  session but never invokes it require real-host logging and validation.
+- Registration tests use a fake backend. The production RegisterServer and
+  UnregisterServer paths have not been executed; install/repair/rollback/
+  uninstall remain isolated-VM work.
 - Password fields and incognito windows are not detected automatically;
   record/direct-view suppression depends on the caller setting
   `PersonalizationContext::sensitive`, while decoder callers must enable
@@ -176,7 +250,8 @@ Memory checkpoint and must not be staged blindly with it.
 - Persistent `Flush()` and orderly destruction have no bounded I/O timeout;
   production ownership therefore remains in the planned isolated service, not
   an application-host TSF edit path.
-- The native candidate UI, settings application, installer, shared decoder
-  service, and registered end-to-end TSF input path are not yet available.
+- The native candidate UI, settings application, supported installer, shared
+  decoder service, and registered end-to-end TSF input path are not yet
+  available.
 - Theme ZIP extraction, actual PNG/WebP decoding, package installation, and
   reference screenshot baselines are not implemented at this checkpoint.
